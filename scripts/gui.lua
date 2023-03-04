@@ -45,6 +45,16 @@ function gui.initialise(player)
             style = "shortcut_bar_inner_panel",
         }
 
+        local export_button = panel.add{
+            type = "sprite-button",
+            name = "egt_export_button",
+            style = "shortcut_bar_button_blue",
+            visible = false,
+            sprite = "egt-export-template-button",
+            tooltip = {"gui.egt-export"},
+            tags = { mode = "export" }
+        }
+
         global.player_data[player.index].windows[window_name] = window
     end
 end

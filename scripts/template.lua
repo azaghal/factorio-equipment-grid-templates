@@ -1,0 +1,173 @@
+-- Copyright (c) 2023 Branko Majic
+-- Provided under MIT license. See LICENSE for details.
+
+
+local template = {}
+
+
+--- Converts equipment grid configuration into list of (blueprint entity) constant combinators.
+--
+-- Constant combinators are laid-out in a grid matching the size of equipment grid. Signals matching equipment items are
+-- set at equipment positions (which corresponds to upper-left corner of equipment itself).
+--
+-- During conversion, the combinators that would get occupied by the equipment are marked-off using colour virtual
+-- signals, resulting in a kind of rectangle with equipment item in upper-left. This is done only for visual hints to
+-- the player.
+--
+-- @param equipment_grid LuaEquipmentGrid Equipment grid for which to generate the list of blueprint entities.
+--
+-- @return {BlueprintEntity} List of blueprint entities (constant combinators) representing the configuration.
+--
+function template.equipment_grid_configuration_to_constant_combinators(equipment_grid)
+
+    -- Set-up a list of empty combinators (row by row) that will represent the configuration.
+    local combinators = {}
+
+    for y = 1, equipment_grid.height do
+        for x = 1, equipment_grid.width do
+
+            table.insert(
+                combinators,
+                {
+                    entity_number = (y - 1) * equipment_grid.width + x,
+                    name = "constant-combinator",
+                    position = {x = x, y = y},
+                    control_behavior = {filters = {}}
+                }
+            )
+        end
+    end
+
+    -- List of virtual signals to use when alternating border color.
+    local border_signal_names = {
+        "signal-red",
+        "signal-green",
+        "signal-blue",
+        "signal-yellow",
+        "signal-pink",
+        "signal-cyan",
+        "signal-white",
+    }
+    local border_variation_count = table_size(border_signal_names)
+
+    -- Process every piece of equipment.
+    for equipment_index, equipment_ in pairs(equipment_grid.equipment) do
+
+        -- Signals to use for setting-up the combinator filters.
+        local equipment_signal = {
+            name = equipment_.name ,
+            type = "item"
+        }
+        local border_signal = {
+            name = border_signal_names[(equipment_index - 1) % border_variation_count + 1],
+            type = "virtual"
+        }
+        local filler_signal =
+            equipment_.shape.height == 1 or equipment_.shape.width == 1 and border_signal or
+            { name = "signal-black", type = "virtual" }
+
+        -- Combinator filter for representing equipment insertion position. Always in top-left.
+        local top_left_border_filters = {
+            { index = 1, count = 1, signal = equipment_signal }
+        }
+
+        -- Filters used for marking the area occupied by equipment on the grid.
+        local top_border_filters = {
+            { index = 2, count = 0, signal = border_signal },
+            { index = 3, count = 0, signal = border_signal },
+            { index = 4, count = 0, signal = filler_signal },
+            { index = 5, count = 0, signal = filler_signal },
+        }
+
+        local top_right_border_filters = {
+            { index = 2, count = 0, signal = border_signal },
+            { index = 3, count = 0, signal = border_signal },
+            { index = 4, count = 0, signal = filler_signal },
+            { index = 5, count = 0, signal = border_signal },
+        }
+
+        local right_border_filters = {
+            { index = 2, count = 0, signal = filler_signal },
+            { index = 3, count = 0, signal = border_signal },
+            { index = 4, count = 0, signal = filler_signal },
+            { index = 5, count = 0, signal = border_signal },
+        }
+
+        local bottom_right_border_filters = {
+            { index = 2, count = 0, signal = filler_signal },
+            { index = 3, count = 0, signal = border_signal },
+            { index = 4, count = 0, signal = border_signal },
+            { index = 5, count = 0, signal = border_signal },
+        }
+
+        local bottom_border_filters = {
+            { index = 2, count = 0, signal = filler_signal },
+            { index = 3, count = 0, signal = filler_signal },
+            { index = 4, count = 0, signal = border_signal },
+            { index = 5, count = 0, signal = border_signal },
+        }
+
+        local bottom_left_border_filters = {
+            { index = 2, count = 0, signal = border_signal },
+            { index = 3, count = 0, signal = filler_signal },
+            { index = 4, count = 0, signal = border_signal },
+            { index = 5, count = 0, signal = border_signal },
+        }
+
+        local left_border_filters = {
+            { index = 2, count = 0, signal = border_signal },
+            { index = 3, count = 0, signal = filler_signal },
+            { index = 4, count = 0, signal = border_signal },
+            { index = 5, count = 0, signal = filler_signal },
+        }
+
+        local center_filters = {
+            { index = 2, count = 0, signal = filler_signal },
+            { index = 3, count = 0, signal = filler_signal },
+            { index = 4, count = 0, signal = filler_signal },
+            { index = 5, count = 0, signal = filler_signal },
+        }
+
+        -- Figure out border positions.
+        local left = equipment_.position.x + 1
+        local right = equipment_.position.x + equipment_.shape.width
+        local top = equipment_.position.y + 1
+        local bottom = equipment_.position.y + equipment_.shape.height
+
+        -- Set-up filters on combinators.
+        for y = top, bottom do
+            for x = left, right do
+                local combinator_index = (y - 1) * equipment_grid.width + x
+                local combinator = combinators[combinator_index]
+
+                -- "Draw" a filled-in rectangle over combinators that denote slots occupied by equipment. Top-left
+                -- should consist just out of equipment item itself.
+                if y == top and x == left then
+                    combinator.control_behavior.filters = top_left_border_filters
+                elseif y == top and x == right then
+                    combinator.control_behavior.filters = top_right_border_filters
+                elseif y == bottom and x == right then
+                    combinator.control_behavior.filters = bottom_right_border_filters
+                elseif y == bottom and x == left then
+                    combinator.control_behavior.filters = bottom_left_border_filters
+                elseif y == top then
+                    combinator.control_behavior.filters = top_border_filters
+                elseif y == bottom then
+                    combinator.control_behavior.filters = bottom_border_filters
+                elseif x == left then
+                    combinator.control_behavior.filters = left_border_filters
+                elseif x == right then
+                    combinator.control_behavior.filters = right_border_filters
+                else
+                    combinator.control_behavior.filters = center_filters
+                end
+
+            end
+        end
+    end
+
+    return combinators
+end
+
+
+return template

@@ -3,6 +3,8 @@
 
 
 local gui = require("scripts.gui")
+local utils = require("scripts.utils")
+local equipment = require("scripts.equipment")
 
 
 local main = {}
@@ -68,7 +70,36 @@ function main.update_button_visibility(player)
     -- Assume the GUI should be kept hidden.
     local gui_mode = "hidden"
 
+    -- Retrieve list of blueprint entities.
+    local blueprint_entities = player.get_blueprint_entities() or {}
+
+    -- Fetch equipment grid corresponding to entity that has its GUI currently open.
+    local entity = utils.get_opened_gui_entity(player)
+    local equipment_grid = entity and entity.grid or nil
+
+    -- Check if player is holding a blank blueprint.
+    if utils.is_player_holding_blank_editable_blueprint(player) and equipment_grid then
+        gui_mode = "export"
+    end
+
     gui.set_mode(player, gui_mode)
+
+end
+
+
+--- Exports equipment grid template for requesting player's opened entity into a held (empty) blueprint.
+--
+-- @param player LuaPlayer Player that has requested the export.
+--
+function main.export(player)
+
+    local entity = utils.get_opened_gui_entity(player)
+    local equipment_grid = entity and entity.grid or nil
+
+    equipment.export_into_blueprint(equipment_grid, player.cursor_stack)
+
+    -- Player should be holding a valid blueprint template at this point. Make sure correct buttons are visible.
+    main.update_button_visibility(player)
 
 end
 
@@ -76,6 +107,7 @@ end
 --- Registers GUI handlers for the module.
 --
 function main.register_gui_handlers()
+    gui.register_handler("egt_export_button", main.export)
 end
 
 
