@@ -5,20 +5,21 @@
 local utils = {}
 
 
---- Retrieves entity corresponding to currently opened GUI.
+--- Retrieves equipment grid corresponding to currently opened GUI.
 --
 -- @param LuaPlayer Player to check the opened GUI for.
 --
--- @return LuaEntity|nil Entity for which the current GUI is opened for.
+-- @return LuaEquipmentGrid|nil Equipment grid for which the current GUI is opened for.
 --
-function utils.get_opened_gui_entity(player)
+function utils.get_opened_gui_equipment_grid(player)
 
-    local entity =
-        player.opened_gui_type == defines.gui_type.controller and player.character or
-        player.opened_gui_type == defines.gui_type.entity and player.opened or
+    local equipment_grid =
+        player.opened_gui_type == defines.gui_type.controller and player.character.grid or
+        player.opened_gui_type == defines.gui_type.entity and player.opened.grid or
+        player.opened_gui_type == defines.gui_type.item and player.opened.object_name == "LuaEquipmentGrid" and player.opened or
         nil
 
-    return entity
+    return equipment_grid
 end
 
 

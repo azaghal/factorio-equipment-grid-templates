@@ -73,9 +73,8 @@ function main.update_button_visibility(player)
     -- Retrieve list of blueprint entities.
     local blueprint_entities = player.get_blueprint_entities() or {}
 
-    -- Fetch equipment grid corresponding to entity that has its GUI currently open.
-    local entity = utils.get_opened_gui_entity(player)
-    local equipment_grid = entity and entity.grid or nil
+    -- Fetch equipment grid corresponding to currently opened GUI.
+    local equipment_grid = utils.get_opened_gui_equipment_grid(player)
 
     -- Check if player is holding a blank blueprint.
     if utils.is_player_holding_blank_editable_blueprint(player) and equipment_grid then
@@ -93,8 +92,7 @@ end
 --
 function main.export(player)
 
-    local entity = utils.get_opened_gui_entity(player)
-    local equipment_grid = entity and entity.grid or nil
+    local equipment_grid = utils.get_opened_gui_equipment_grid(player)
 
     equipment.export_into_blueprint(equipment_grid, player.cursor_stack)
 

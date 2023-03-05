@@ -20,10 +20,16 @@ function gui.initialise(player)
     global.player_data[player.index].windows = {}
 
     local window_anchors = {
+        armor = defines.relative_gui_type.armor_gui,
         car = defines.relative_gui_type.car_gui,
         character = defines.relative_gui_type.controller_gui,
+        -- Cargo wagons, artillery wagons.
         container = defines.relative_gui_type.container_gui,
+        -- Fluid wagons.
+        equipment_grid = defines.relative_gui_type.equipment_grid_gui,
         spidertron = defines.relative_gui_type.spider_vehicle_gui,
+        -- Locomotives.
+        train = defines.relative_gui_type.train_gui,
     }
 
     for window_name, gui_type in pairs(window_anchors) do
@@ -57,6 +63,7 @@ function gui.initialise(player)
 
         global.player_data[player.index].windows[window_name] = window
     end
+
 end
 
 
