@@ -29,7 +29,8 @@ First filter slot of a combinator is used to specify equipment item placed in th
 Known issues
 ------------
 
-There are no known issues at this time.
+-   Buttons for locomotives with an equipment grid are shown in the top-left side of the opened window. Attempts to attach to the bottom result in the buttons not being visible. Most likely a bug in the game engine itself.
+-   If opened window/equipment grid is particularly tall, the buttons may fail to render. Decreasing the UI scale (`Control + Numpad -`) seems to help. Most likely a bug in the game engine itself.
 
 
 Contributions

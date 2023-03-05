@@ -64,6 +64,18 @@ function gui.initialise(player)
         global.player_data[player.index].windows[window_name] = window
     end
 
+    -- @WORKAROUND: Window does not get rendered at bottom of train window for some reason. Interesting enough, if the
+    --              top_margin is set to -10, the window will render, but button cannot be clicked.
+    --
+    --              Similar problem seems to happen with spidetron/vehicle GUIs if they have a tall equipment grid, and
+    --              at specific GUI sizes. Decrementing GUI size seems to unhide the window.
+    --
+    --              Both issues are most likely related to the window being too tall. Probably should test against
+    --              latest version and then report the bug to Wube.
+    global.player_data[player.index].windows.train.anchor = {
+        gui = global.player_data[player.index].windows.train.anchor.gui,
+        position = defines.relative_gui_position.left
+    }
 end
 
 
