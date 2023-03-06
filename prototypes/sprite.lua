@@ -10,5 +10,13 @@ data:extend{
         size = 32,
         mipmap_count = 2,
         flags = {"icon"}
-    }
+    },
+    {
+        type = "sprite",
+        name = "egt-export-border-template-button",
+        filename = "__equipment-grid-templates__/graphics/icons/export-border-template-button.png",
+        size = 32,
+        mipmap_count = 2,
+        flags = {"icon"}
+    },
 }

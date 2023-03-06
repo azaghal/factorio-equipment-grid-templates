@@ -14,7 +14,12 @@ Features
 
 ### Create templates
 
-Hold an empty blueprint while entity with equipment grid is opened, and an export button will be shown at bottom-left of the window. Clicking on the button while holding an empty blueprint will read information about currently configured equipment in the equipment grid, and export that information to blueprint in the form of constant combinators (see below section on format). The export button is visible _only_ when an empty, non-library blueprint is held.
+Hold an empty blueprint while entity with equipment grid is opened, and export buttons will be shown at bottom-left of the window. Clicking on the buttons while holding an empty blueprint will read information about currently configured equipment in the equipment grid, and export that information to blueprint in the form of constant combinators (see below section on format). The export buttons are visible _only_ when an empty, non-library blueprint is held.
+
+Two export buttons are provided for two variants of resulting blueprint templates:
+
+-   Plain blueprint template, where equipment is represented only with its upper-left (corner) position. This template provides simple, clean look.
+-   Bordered blueprint template, where equipment is represented with its upper-left (corner) position, but also with color-coded borders showing how much space the equipment occupies in the grid. This template provides player with visual representation on where equipment starts and ends, and is also convenient when manipulating the template by hand (since equipment size and unoccupied slots are clearly visible).
 
 
 ### Template format
@@ -54,5 +59,6 @@ All code, documentation, and assets implemented as part of this mod are released
 
 -   [build.sh (factorio_development.sh)](https://code.majic.rs/majic-scripts/), by Branko Majic, under [GPLv3](https://www.gnu.org/licenses/gpl-3.0.html).
 -   `assets/thumbnail.svg`, which is a derivative based on Factorio game assets as provided by *Wube Software Ltd*. For details, see [Factorio Terms of Service](https://www.factorio.com/terms-of-service).
+-   `graphics/icons/export-border-template-button.png`, which is a derivative based on Factorio game assets as provided by *Wube Software Ltd*. For details, see [Factorio Terms of Service](https://www.factorio.com/terms-of-service).
 -   `graphics/icons/export-template-button.png`, which is a derivative based on Factorio game assets as provided by *Wube Software Ltd*. For details, see [Factorio Terms of Service](https://www.factorio.com/terms-of-service).
 -   `thumbnail.png`, which is a derivative based on Factorio game assets as provided by *Wube Software Ltd*. For details, see [Factorio Terms of Service](https://www.factorio.com/terms-of-service).

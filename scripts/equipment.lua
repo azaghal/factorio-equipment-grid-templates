@@ -12,10 +12,17 @@ local equipment = {}
 --
 -- @param equipment_grid LuaEquipmentGrid Equipment grid to export the template for.
 -- @param blueprint LuaItemStack Empty blueprint to export the template into.
+-- @param bool include_equipment_border Include equipment borders in exported blueprint.
 --
-function equipment.export_into_blueprint(equipment_grid, blueprint)
+function equipment.export_into_blueprint(equipment_grid, blueprint, include_equipment_borders)
 
-    local combinators = template.equipment_grid_configuration_to_constant_combinators(equipment_grid)
+    local combinators
+
+    if include_equipment_borders then
+        combinators = template.equipment_grid_configuration_to_constant_combinators_with_borders(equipment_grid)
+    else
+        combinators = template.equipment_grid_configuration_to_constant_combinators(equipment_grid)
+    end
 
     -- Set the blueprint content and change default icons.
     blueprint.set_blueprint_entities(combinators)

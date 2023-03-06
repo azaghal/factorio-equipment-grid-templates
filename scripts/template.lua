@@ -10,6 +10,52 @@ local template = {}
 -- Constant combinators are laid-out in a grid matching the size of equipment grid. Signals matching equipment items are
 -- set at equipment positions (which corresponds to upper-left corner of equipment itself).
 --
+-- @param equipment_grid LuaEquipmentGrid Equipment grid for which to generate the list of blueprint entities.
+--
+-- @return {BlueprintEntity} List of blueprint entities (constant combinators) representing the configuration.
+--
+function template.equipment_grid_configuration_to_constant_combinators(equipment_grid)
+
+    -- Set-up a list of empty combinators (row by row) that will represent the configuration.
+    local combinators = {}
+
+    for y = 1, equipment_grid.height do
+        for x = 1, equipment_grid.width do
+            table.insert(
+                combinators,
+                {
+                    entity_number = (y - 1) * equipment_grid.width + x,
+                    name = "constant-combinator",
+                    position = {x = x, y = y},
+                    control_behavior = {filters = {}}
+                }
+            )
+        end
+    end
+
+    -- Process every piece of equipment.
+    for equipment_index, equipment_ in pairs(equipment_grid.equipment) do
+
+        -- Fetch combinator that corresponds to position on the equipment grid.
+        local combinator_index = equipment_.position.y * equipment_grid.width + equipment_.position.x + 1
+        local combinator = combinators[combinator_index]
+
+        table.insert(
+            combinator.control_behavior.filters,
+            { index = 1, count = 1, signal = { name = equipment_.name, type = "item" } }
+        )
+
+    end
+
+    return combinators
+end
+
+
+--- Converts equipment grid configuration into list of (blueprint entity) constant combinators.
+--
+-- Constant combinators are laid-out in a grid matching the size of equipment grid. Signals matching equipment items are
+-- set at equipment positions (which corresponds to upper-left corner of equipment itself).
+--
 -- During conversion, the combinators that would get occupied by the equipment are marked-off using colour virtual
 -- signals, resulting in a kind of rectangle with equipment item in upper-left. This is done only for visual hints to
 -- the player.
@@ -18,7 +64,7 @@ local template = {}
 --
 -- @return {BlueprintEntity} List of blueprint entities (constant combinators) representing the configuration.
 --
-function template.equipment_grid_configuration_to_constant_combinators(equipment_grid)
+function template.equipment_grid_configuration_to_constant_combinators_with_borders(equipment_grid)
 
     -- Set-up a list of empty combinators (row by row) that will represent the configuration.
     local combinators = {}

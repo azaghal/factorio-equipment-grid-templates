@@ -61,6 +61,16 @@ function gui.initialise(player)
             tags = { mode = "export" }
         }
 
+        local export_border_button = panel.add{
+            type = "sprite-button",
+            name = "egt_export_border_button",
+            style = "shortcut_bar_button_blue",
+            visible = false,
+            sprite = "egt-export-border-template-button",
+            tooltip = {"gui.egt-export-border"},
+            tags = { mode = "export" }
+        }
+
         global.player_data[player.index].windows[window_name] = window
     end
 

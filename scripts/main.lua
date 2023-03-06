@@ -94,7 +94,25 @@ function main.export(player)
 
     local equipment_grid = utils.get_opened_gui_equipment_grid(player)
 
-    equipment.export_into_blueprint(equipment_grid, player.cursor_stack)
+    equipment.export_into_blueprint(equipment_grid, player.cursor_stack, false)
+
+    -- Player should be holding a valid blueprint template at this point. Make sure correct buttons are visible.
+    main.update_button_visibility(player)
+
+end
+
+
+--- Exports equipment grid template for requesting player's opened entity into a held (empty) blueprint.
+--
+-- Produces blueprint with border markers for denoting what area is occupied by each piece of equipment.
+--
+-- @param player LuaPlayer Player that has requested the export.
+--
+function main.export_border(player)
+
+    local equipment_grid = utils.get_opened_gui_equipment_grid(player)
+
+    equipment.export_into_blueprint(equipment_grid, player.cursor_stack, true)
 
     -- Player should be holding a valid blueprint template at this point. Make sure correct buttons are visible.
     main.update_button_visibility(player)
@@ -106,6 +124,7 @@ end
 --
 function main.register_gui_handlers()
     gui.register_handler("egt_export_button", main.export)
+    gui.register_handler("egt_export_border_button", main.export_border)
 end
 
 
