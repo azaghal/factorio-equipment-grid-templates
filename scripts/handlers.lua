@@ -19,6 +19,21 @@ function handlers.on_player_cursor_stack_changed(event)
 end
 
 
+--- Updates button visibility when players open a GUI.
+--
+-- @param event EventData Event data as passed-in by the game engine.
+--
+function handlers.on_gui_opened(event)
+    local player = game.players[event.player_index]
+
+    -- This is the only type of mod-supported inventory GUI that can be opened while a blueprint is being held (at least
+    -- in vanilla game).
+    if event.gui_type == defines.gui_type.controller then
+        main.update_button_visibility(player)
+    end
+end
+
+
 --- Initialises mod data for newly joined players.
 --
 -- @param event EventData Event data as passed-in by the game engine.
