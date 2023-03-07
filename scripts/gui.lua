@@ -71,6 +71,16 @@ function gui.initialise(player)
             tags = { mode = "export" }
         }
 
+        local import_button = panel.add{
+            type = "sprite-button",
+            name = "egt_import_button",
+            style = "shortcut_bar_button_blue",
+            visible = false,
+            sprite = "egt-import-template-button",
+            tooltip = {"gui.egt-import"},
+            tags = { mode = "import" }
+        }
+
         global.player_data[player.index].windows[window_name] = window
     end
 

@@ -5,6 +5,7 @@
 local gui = require("scripts.gui")
 local utils = require("scripts.utils")
 local equipment = require("scripts.equipment")
+local template = require("scripts.template")
 
 
 local main = {}
@@ -73,12 +74,18 @@ function main.update_button_visibility(player)
     -- Retrieve list of blueprint entities.
     local blueprint_entities = player.get_blueprint_entities() or {}
 
-    -- Fetch equipment grid corresponding to currently opened GUI.
+    -- Fetch entity and equipment grid corresponding to currently opened GUI.
+    local entity = utils.get_opened_gui_entity(player)
     local equipment_grid = utils.get_opened_gui_equipment_grid(player)
 
     -- Check if player is holding a blank blueprint.
     if utils.is_player_holding_blank_editable_blueprint(player) and equipment_grid then
         gui_mode = "export"
+
+    -- Check if player is holding a valid template while window of entity with an equipment grid is open.
+    elseif entity and equipment_grid and template.is_valid_template(equipment_grid, blueprint_entities) then
+        gui_mode = "import"
+
     end
 
     gui.set_mode(player, gui_mode)
@@ -120,11 +127,27 @@ function main.export_border(player)
 end
 
 
+--- Imports equipment grid template from a held blueprint.
+--
+-- @param player LuaPlayer Player that has requested the import.
+--
+function main.import(player)
+
+    local blueprint_entities = player.get_blueprint_entities()
+    local inventory_configuration = template.constant_combinators_to_equipment_grid_configuration(blueprint_entities)
+    local entity = utils.get_opened_gui_entity(player)
+
+    equipment.import(entity, inventory_configuration)
+
+end
+
+
 --- Registers GUI handlers for the module.
 --
 function main.register_gui_handlers()
     gui.register_handler("egt_export_button", main.export)
     gui.register_handler("egt_export_border_button", main.export_border)
+    gui.register_handler("egt_import_button", main.import)
 end
 
 

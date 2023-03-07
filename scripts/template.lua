@@ -5,6 +5,115 @@
 local template = {}
 
 
+--- Checks if passed-in list of blueprint entities constitutes a valid equipment grid template that can be imported.
+--
+-- @param equipment_grid LuaEquipmentGrid Equipment grid to check the template against.
+-- @param blueprint_entities {BlueprintEntity} List of blueprint entities to check.
+--
+-- @return bool true if passed-in entities constitute valid equipment grid template, false otherwise.
+--
+function template.is_valid_template(equipment_grid, blueprint_entities)
+
+    -- At least one entity must be present in the blueprint.
+    if table_size(blueprint_entities) == 0 then
+        return false
+    end
+
+    -- Equipment grid must have the same number of slots as passed-in template.
+    if equipment_grid.height * equipment_grid.width ~= table_size(blueprint_entities) then
+        return false
+    end
+
+    -- Sort the passed-in combinators by coordinates. This is the same order the combinators are read during import.
+    local sort_by_coordinate = function(elem1, elem2)
+        if elem1.position.y < elem2.position.y then
+            return true
+        elseif elem1.position.y == elem2.position.y and elem1.position.x < elem2.position.x then
+            return true
+        end
+
+        return false
+    end
+    table.sort(blueprint_entities, sort_by_coordinate)
+
+    -- Set-up a matrix for keeping track on whether we can fit all the equipment into the grid.
+    local space_occupied = {}
+    for x = 1, equipment_grid.width do
+
+        local column = {}
+        table.insert(space_occupied, column)
+
+        for y = 1, equipment_grid.height do
+            table.insert(column, false)
+        end
+    end
+
+    -- Process combinators one by one, try to bail-out early if possible.
+    for entity_index, entity in pairs(blueprint_entities) do
+
+        -- Only constant combinators are allowed in the blueprint.
+        if entity.name ~= "constant-combinator" then
+            return false
+        end
+
+        -- Extract list of filters on constant combinator.
+        local filters = entity.control_behavior and entity.control_behavior.filters and entity.control_behavior.filters or {}
+
+        -- Maximum of four filters can be set.
+        if table_size(filters) > 4 then
+            return false
+        end
+
+        -- Check if the filters have been set correctly.
+        for _, filter in pairs(filters) do
+
+            -- Check if filters at specific positions are of correct type.
+            if filter.index > 5 then
+                return false
+            elseif filter.index == 1 and (filter.count ~= 1 or filter.signal.type ~= "item" or not game.equipment_prototypes[filter.signal.name]) then
+                return false
+            elseif filter.index ~= 1 and (filter.signal.type ~= "virtual") then
+                return false
+            end
+
+            -- Check if equipment fits in the grid.
+            if filter.index == 1 then
+
+                local equipment = game.equipment_prototypes[filter.signal.name]
+
+                -- Expected boundries for the equipment.
+                local top = math.floor((entity_index - 1) / 10) + 1
+                local bottom = top + equipment.shape.height - 1
+                local left = (entity_index - 1) % 10 + 1
+                local right = left + equipment.shape.width - 1
+
+                -- Check if equipment is within the grid boundaries.
+                if bottom > equipment_grid.height or right > equipment_grid.width then
+                    return false
+                end
+
+                -- Check if equipment is overlapping other equipment.
+                for y = top, bottom do
+                    for x = left, right do
+                        if space_occupied[x][y] then
+                            return false
+                        else
+                            space_occupied[x][y] = true
+                        end
+
+                    end
+                end
+
+            end
+
+        end
+
+    end
+
+    return true
+end
+
+
 --- Converts equipment grid configuration into list of (blueprint entity) constant combinators.
 --
 -- Constant combinators are laid-out in a grid matching the size of equipment grid. Signals matching equipment items are

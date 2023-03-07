@@ -19,4 +19,12 @@ data:extend{
         mipmap_count = 2,
         flags = {"icon"}
     },
+    {
+        type = "sprite",
+        name = "egt-import-template-button",
+        filename = "__equipment-grid-templates__/graphics/icons/import-template-button.png",
+        size = 32,
+        mipmap_count = 2,
+        flags = {"icon"}
+    },
 }

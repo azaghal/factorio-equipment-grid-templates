@@ -23,6 +23,26 @@ function utils.get_opened_gui_equipment_grid(player)
 end
 
 
+--- Retrieves entity corresponding to currently opened GUI.
+--
+-- @param LuaPlayer Player to check the opened GUI for.
+--
+-- @return LuaEntity|nil Entity for which the current GUI is opened for, or nil in case of unsupported entity.
+--
+function utils.get_opened_gui_entity(player)
+
+    local entity = nil
+
+    if player.opened_gui_type == defines.gui_type.controller then
+        entity = player.character
+    elseif player.opened_gui_type == defines.gui_type.entity and player.opened.grid then
+        entity = player.opened
+    end
+
+    return entity
+end
+
+
 --- Checks if the player is holding a blank editable blueprint.
 --
 -- @param player LuaPlayer Player for which to perform the check.
