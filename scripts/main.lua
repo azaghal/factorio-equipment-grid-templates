@@ -133,11 +133,16 @@ end
 --
 function main.import(player)
 
-    local blueprint_entities = player.get_blueprint_entities()
-    local inventory_configuration = template.constant_combinators_to_equipment_grid_configuration(blueprint_entities)
     local entity = utils.get_opened_gui_entity(player)
+    local equipment_grid = utils.get_opened_gui_equipment_grid(player)
+    local provider_inventory =
+        player.can_reach_entity(entity) and player.character.get_inventory(defines.inventory.character_main) or
+        nil
 
-    equipment.import(entity, inventory_configuration)
+    local blueprint_entities = player.get_blueprint_entities()
+    local configuration = template.constant_combinators_to_equipment_grid_configuration(blueprint_entities, equipment_grid.width)
+
+    equipment.import(equipment_grid, provider_inventory, entity, configuration)
 
 end
 

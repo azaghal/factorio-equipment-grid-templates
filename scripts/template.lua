@@ -325,4 +325,56 @@ function template.equipment_grid_configuration_to_constant_combinators_with_bord
 end
 
 
+--- Converts list of (blueprint entity) constant combinators into equipment grid configuration.
+--
+-- Function assumes that the passed-in list of constant combinators has been validated already (see
+-- template.is_valid_template).
+--
+-- @param combinators {BlueprintEntity} List of constant combinators representing inventory configuration.
+-- @param grid_width uint Width of equipment grid.
+--
+-- @return { { name = string, position = EquipmentPosition } } List of equipment with equipment grid positions.
+--
+function template.constant_combinators_to_equipment_grid_configuration(combinators, grid_width)
+
+    local configuration = {}
+
+    -- Sort the passed-in combinators by coordinates. This should help get a somewhat sane ordering even if player has
+    -- been messing with the constant combinator layout. Slots are read from top to bottom and from left to right.
+    table.sort(
+        combinators,
+        function(a, b)
+            return a.position.y < b.position.y or a.position.y == b.position.y and a.position.x < b.position.x
+        end
+    )
+
+    for combinator_index, combinator in pairs(combinators) do
+
+        if combinator.control_behavior and combinator.control_behavior.filters then
+
+            local combinator_filters = combinator.control_behavior.filters
+
+            for _, filter in pairs(combinator.control_behavior.filters) do
+
+                -- Grid positions are 0-based.
+                local position = {
+                    x = (combinator_index - 1) % grid_width,
+                    y = math.floor((combinator_index - 1) / grid_width)
+                }
+
+                if filter.index == 1  then
+                    table.insert(configuration, { name = filter.signal.name, position = position })
+                end
+
+            end
+
+        end
+
+    end
+
+    return configuration
+
+end
+
+
 return template
