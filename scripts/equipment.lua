@@ -50,7 +50,7 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
     -- Track excess equipment (by name) that should be remove from equipment grid.
     local excess_equipment = {}
 
-    -- Track missing equipment (by name) count.
+    -- Track missing equipment (by name). Maps name to list of positions in the equipment grid.
     local missing_equipment = {}
 
     -- Find configuration equipment that is already correctly placed in the grid, and remove all other equipment.
@@ -96,8 +96,8 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
 
             else
 
-                missing_equipment[requested_equipment.name] = missing_equipment[requested_equipment.name] or 0
-                missing_equipment[requested_equipment.name] = missing_equipment[requested_equipment.name] + 1
+                missing_equipment[requested_equipment.name] = missing_equipment[requested_equipment.name] or {}
+                table.insert(missing_equipment[requested_equipment.name], requested_equipment.position)
 
             end
 
@@ -114,23 +114,27 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
         end
     end
 
+    -- Clear existing proxy requests.
+    local item_request_proxies = provider_entity.surface.find_entities_filtered{
+        position = provider_entity.position,
+        name = "item-requests-proxy"
+    }
+
+    for _, item_request_proxy in pairs(item_request_proxies) do
+        item_request_proxy.destroy()
+    end
+
     -- Request missing equipment delivery via construction bots. Reuse existing item request proxy.
-    if table_size(missing_equipment) > 0 then
-
-        local equipment_request_proxy = provider_entity.surface.find_entity('item-request-proxy', provider_entity.position)
-
-        if equipment_request_proxy then
-            equipment_request_proxy.item_requests = missing_equipment
-        else
-            equipment_request_proxy = provider_entity.surface.create_entity{
+    for name, position_list in pairs(missing_equipment) do
+        for _, position in pairs(position_list) do
+            local equipment_request_proxy = provider_entity.surface.create_entity{
                 name = "item-request-proxy",
                 target = provider_entity,
-                modules = missing_equipment,
+                modules = { [name] = 1 },
                 position = provider_entity.position,
                 force = provider_entity.force,
             }
         end
-
     end
 
 end
