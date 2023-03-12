@@ -98,7 +98,7 @@ function equipment.clear_equipment_delivery_requests(entity)
             global.equipment_requests[registration_number] = nil
 
             if equipment_request.valid then
-                equipment_request.equipment_request_proxy.destroy()
+                equipment_request.equipment_request_proxy.destroy{raise_destroy = true}
             end
 
         end
@@ -214,16 +214,6 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
                 provider_entity.surface.spill_item_stack(provider_entity.position, equipment_, false, nil, false)
             end
         end
-    end
-
-    -- Clear existing proxy requests.
-    local item_request_proxies = provider_entity.surface.find_entities_filtered{
-        position = provider_entity.position,
-        name = "item-requests-proxy"
-    }
-
-    for _, item_request_proxy in pairs(item_request_proxies) do
-        item_request_proxy.destroy()
     end
 
     -- Request missing equipment delivery via construction bots. Clear any previous requests.
