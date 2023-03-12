@@ -210,8 +210,8 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
     -- Store remaining excess equipment in provider inventory or spill it on the ground if no room is available.
     for _, equipment_list in pairs(excess_equipment) do
         for _, equipment_ in pairs(equipment_list) do
-            if provider_inventory.insert(equipment) == 0 then
-                provider_entity.surface.spill_item_stack(provider_entity.position, equipment, false, nil, false)
+            if provider_inventory.insert(equipment_) == 0 then
+                provider_entity.surface.spill_item_stack(provider_entity.position, equipment_, false, nil, false)
             end
         end
     end
