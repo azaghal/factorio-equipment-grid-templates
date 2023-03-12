@@ -3,6 +3,7 @@
 
 
 local main = require("scripts.main")
+local equipment = require("scripts.equipment")
 local gui = require("scripts.gui")
 
 
@@ -93,6 +94,27 @@ function handlers.on_configuration_changed(data)
         main.update_data(mod_changes.old_version,
                          mod_changes.new_version)
     end
+end
+
+
+--- Processes entity destruction events (primarily for item request proxies).
+--
+-- @param event EventData Event data as passed-in by the game engine.
+--
+function handlers.on_entity_destroyed(data)
+
+    local equipment_request = global.equipment_requests[data.registration_number]
+
+    if equipment_request then
+
+        if equipment_request.entity.valid then
+            equipment.process_received_equipment(equipment_request)
+        end
+
+        global.equipment_requests[data.registration_number] = nil
+
+    end
+
 end
 
 

@@ -35,6 +35,108 @@ function equipment.export_into_blueprint(equipment_grid, blueprint, include_equi
 end
 
 
+--- Adds equipment delivery request for an entity.
+--
+-- Equipment requests is registred via global.equipment_requests data structure, which maps registration numbers
+-- (obtained via script.register_on_entity_destroyed) to equipment request information. The equipment request
+-- has the following keys available:
+--
+--     - entity (LuaEntity), entity to which the request (and equipment grid) are tied to.
+--     - inventories ({ LuaInventory }), list of inventories associated with the entity. This is where requested items
+--       will usually end-up in.
+--     - name (string), name of requested equipment.
+--     - position (EquipmentPosition), desired position of equipment in the grid.
+--     - request_proxy (LuaEntity), item request proxy entity used to deliver the equipment.
+--
+-- @param entity Entity with equipment grid to insert the delivered equipment into.
+-- @param equipment_name string Name of equipment to deliver.
+-- @param equipment_position EquipmentPosition Position in grid to install the equipment into.
+--
+function equipment.add_equipment_delivery_request(entity, equipment_name, equipment_position)
+
+    -- Set-up list of inventories available to entity.
+    local entity_inventories = {}
+    for inventory_name, enum in pairs(defines.inventory) do
+        entity_inventories[enum] = entity_inventories[enum] or entity.get_inventory(enum)
+    end
+
+    -- Create entity for equipment delivery using construction bots.
+    local equipment_request_proxy = entity.surface.create_entity{
+        name = "item-request-proxy",
+        target = entity,
+        modules = { [equipment_name] = 1 },
+        position = entity.position,
+        force = entity.force,
+    }
+
+    -- Prepare request information.
+    local equipment_request = {
+        entity = entity,
+        inventories = entity_inventories,
+        name = equipment_name,
+        position = equipment_position,
+        request_proxy = equipment_request_proxy
+    }
+
+    -- Keep track of created item request proxy, and register the data for handler processing.
+    local registration_number = script.register_on_entity_destroyed(equipment_request_proxy)
+    global.equipment_requests[registration_number] = equipment_request
+
+end
+
+
+--- Clears all equipment delivery requests for a given entity.
+--
+-- @param entity LuaEntity Entity for which to clear the requests.
+--
+function equipment.clear_equipment_delivery_requests(entity)
+
+    for registration_number, equipment_request in pairs(global.equipment_requests) do
+        if entity.unit_number == equipment_request.entity.unit_number then
+
+            -- Clear registration number so the on_entity_destroyed handler would not process it.
+            global.equipment_requests[registration_number] = nil
+
+            if equipment_request.valid then
+                equipment_request.equipment_request_proxy.destroy()
+            end
+
+        end
+    end
+
+end
+
+
+--- Processes received equipment from an equipment request.
+--
+-- @param equipment_request {
+--     entity = LuaEntity,
+--     inventories = { LuaInventory },
+--     name = string,
+--     position = EquipmentPosition,
+--     request_proxy = LuaEntity,
+-- } Equipment request for received equipment.
+--
+function equipment.process_received_equipment(equipment_request)
+
+    local equipment_
+    local index
+
+    for _, inventory in pairs(equipment_request.inventories) do
+        equipment_, index = inventory.find_item_stack(equipment_request.name)
+        if equipment_ then
+            break
+        end
+    end
+
+    if equipment_ then
+        equipment_request.entity.grid.put({name = equipment_request.name, position = equipment_request.position})
+        equipment_.count  = equipment_.count - 1
+    end
+
+end
+
+
 --- Import equipment grid configuration.
 --
 -- @param equipment_grid LuaEquipmentGrid Equipment grid for which to import the configuration.
@@ -124,16 +226,11 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
         item_request_proxy.destroy()
     end
 
-    -- Request missing equipment delivery via construction bots. Reuse existing item request proxy.
+    -- Request missing equipment delivery via construction bots. Clear any previous requests.
+    equipment.clear_equipment_delivery_requests(provider_entity)
     for name, position_list in pairs(missing_equipment) do
         for _, position in pairs(position_list) do
-            local equipment_request_proxy = provider_entity.surface.create_entity{
-                name = "item-request-proxy",
-                target = provider_entity,
-                modules = { [name] = 1 },
-                position = provider_entity.position,
-                force = provider_entity.force,
-            }
+            equipment.add_equipment_delivery_request(provider_entity, name, position)
         end
     end
 

@@ -15,6 +15,7 @@ local main = {}
 --
 function main.initialise_data()
     global.player_data = global.player_data or {}
+    global.equipment_requests = {}
 
     for index, player in pairs(game.players) do
         main.initialise_player_data(player)
@@ -40,12 +41,16 @@ end
 --
 function main.update_data(old_version, new_version)
 
-    -- Ensure the GUI definition is up-to-date for all players.
     if new_version ~= old_version then
+
+        -- Ensure the GUI definition is up-to-date for all players.
         for index, player in pairs(game.players) do
             gui.destroy_player_data(player)
             gui.initialise(player)
         end
+
+        global.equipment_requests = global.equipment_requests or {}
+
     end
 
 end

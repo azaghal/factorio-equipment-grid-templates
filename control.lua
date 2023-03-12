@@ -15,5 +15,6 @@ script.on_event(defines.events.on_gui_opened, handlers.on_gui_opened)
 script.on_event(defines.events.on_player_joined_game, handlers.on_player_joined_game)
 script.on_event(defines.events.on_pre_player_removed, handlers.on_pre_player_removed)
 script.on_event(defines.events.on_gui_click, handlers.on_gui_click)
+script.on_event(defines.events.on_entity_destroyed, handlers.on_entity_destroyed)
 
 handlers.register_gui_handlers()
