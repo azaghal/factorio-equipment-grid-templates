@@ -80,19 +80,19 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
 
     end
 
-    -- Try to satisfy configuration using equipment removed from the grid or from provider iventory.
+    -- Try to satisfy configuration using equipment removed from the grid or from provider inventory.
     for requested_equipment_index, requested_equipment in pairs(configuration) do
 
         if not already_fulfilled[requested_equipment_index] then
 
-            local equipment =
+            local equipment_ =
                 table.remove(excess_equipment[requested_equipment.name] or {}) or
                 provider_inventory.find_item_stack(requested_equipment.name)
 
-            if equipment then
+            if equipment_ then
 
                 equipment_grid.put({name = requested_equipment.name, position = requested_equipment.position})
-                equipment.count = equipment.count - 1
+                equipment_.count = equipment_.count - 1
 
             else
 
@@ -107,7 +107,7 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
 
     -- Store remaining excess equipment in provider inventory or spill it on the ground if no room is available.
     for _, equipment_list in pairs(excess_equipment) do
-        for _, equipment in pairs(equipment_list) do
+        for _, equipment_ in pairs(equipment_list) do
             if provider_inventory.insert(equipment) == 0 then
                 provider_entity.surface.spill_item_stack(provider_entity.position, equipment, false, nil, false)
             end
