@@ -3,9 +3,14 @@
 
 
 local template = require("scripts.template")
+local factorio_util = require("util")
 
 
 local equipment = {}
+
+
+--- Update frequency in ticks for repositioning delivery boxes and installing delivered equipment.
+equipment.DELIVERY_UPDATE_FREQUENCY = 20
 
 
 --- Exports equipment grid template into passed-in blueprint.
@@ -37,101 +42,256 @@ end
 
 --- Adds equipment delivery request for an entity.
 --
--- Equipment requests is registred via global.equipment_requests data structure, which maps registration numbers
--- (obtained via script.register_on_entity_destroyed) to equipment request information. The equipment request
--- has the following keys available:
+-- Equipment requests are registred via global.equipment_requests data structure, which maps unit number of target
+-- entity to equipment request information. The equipment request has the following keys available:
 --
---     - entity (LuaEntity), entity to which the request (and equipment grid) are tied to.
---     - inventories ({ LuaInventory }), list of inventories associated with the entity. This is where requested items
---       will usually end-up in.
---     - name (string), name of requested equipment.
---     - position (EquipmentPosition), desired position of equipment in the grid.
---     - request_proxy (LuaEntity), item request proxy entity used to deliver the equipment.
+--     - entity (LuaEntity), entity where the equipment should be installed.
+--     - equipment ({ string = { EquipmentPosition }), list of requested equipment, mapping equipment names to
+--       list of positions in grid.
+--     - delivery_box (LuaEntity), delivery box for storing the requested equipment prior to installation.
+--     - delivery_inventory (LuaInventory), delivery box where the equipment is temporarily stored.
+--     - delivery_request_proxy (LuaEntity), item request proxy entity used to deliver the equipment into delviery
+--       box/inventory.
 --
--- @param entity Entity with equipment grid to insert the delivered equipment into.
--- @param equipment_name string Name of equipment to deliver.
--- @param equipment_position EquipmentPosition Position in grid to install the equipment into.
+-- @param entity Entity with equipment grid where equipment should be installed.
+-- @param requested_equipment { string = { EquipmentPosition } } List of equipment to install. Maps equipment names into
+--     list of equipment grid positions.
 --
-function equipment.add_equipment_delivery_request(entity, equipment_name, equipment_position)
+function equipment.add_equipment_delivery_request(entity, requested_equipment)
 
-    -- Set-up list of inventories available to entity.
-    local entity_inventories = {}
-    for inventory_name, enum in pairs(defines.inventory) do
-        entity_inventories[enum] = entity_inventories[enum] or entity.get_inventory(enum)
+    -- Set-up list of equipment to deliver.
+    local equipment_modules = {}
+    for name, positions in pairs(requested_equipment) do
+        equipment_modules[name] = table_size(positions)
     end
 
-    -- Create entity for equipment delivery using construction bots.
-    local equipment_request_proxy = entity.surface.create_entity{
-        name = "item-request-proxy",
-        target = entity,
-        modules = { [equipment_name] = 1 },
+    -- Nothing to be done, bail-out.
+    if table_size(equipment_modules) == 0 then
+        return
+    end
+
+    -- Create delivery box for requesting the equipment.
+    local delivery_box = entity.surface.create_entity{
+        name = "egt-delivery-box",
         position = entity.position,
         force = entity.force,
+    }
+
+    local delivery_inventory = delivery_box.get_inventory(defines.inventory.item_main)
+
+    -- Create item request proxy for delivering equipment.
+    local equipment_request_proxy = entity.surface.create_entity{
+        name = "item-request-proxy",
+        target = delivery_box,
+        modules = equipment_modules,
+        position = delivery_box.position,
+        force = delivery_box.force,
     }
 
     -- Prepare request information.
     local equipment_request = {
         entity = entity,
-        inventories = entity_inventories,
-        name = equipment_name,
-        position = equipment_position,
-        request_proxy = equipment_request_proxy
+        equipment = factorio_util.table.deepcopy(requested_equipment),
+        delivery_box = delivery_box,
+        delivery_inventory = delivery_inventory,
+        delivery_request_proxy = factorio_util.table.deepcopy(equipment_request_proxy)
     }
 
-    -- Keep track of created item request proxy, and register the data for handler processing.
-    local registration_number = script.register_on_entity_destroyed(equipment_request_proxy)
-    global.equipment_requests[registration_number] = equipment_request
+    -- Regiser data for processing.
+    global.equipment_requests[entity.unit_number] = equipment_request
+
+    -- Start processing deliveries when the first request gets added.
+    if table_size(global.equipment_requests) == 1 then
+        script.on_nth_tick(equipment.DELIVERY_UPDATE_FREQUENCY, equipment.process_equipment_deliveries)
+    end
 
 end
 
 
---- Clears all equipment delivery requests for a given entity.
+--- Clears equipment delivery request for entity identified by passed-in unit number.
 --
--- @param entity LuaEntity Entity for which to clear the requests.
+-- Unit number is used in order to avoid having to deal with invalid entities (where unit number can no longer be
+-- obtained).
 --
-function equipment.clear_equipment_delivery_requests(entity)
+-- Equipment iems that have already been delivered into the delivery box are spilled on the ground.
+--
+-- @param unit_number uint Unit number of entity for which to clear the request.
+--
+function equipment.clear_equipment_delivery_request(unit_number)
 
-    for registration_number, equipment_request in pairs(global.equipment_requests) do
-        if entity.unit_number == equipment_request.entity.unit_number then
+    local equipment_request = global.equipment_requests[unit_number]
 
-            -- Clear registration number so the on_entity_destroyed handler would not process it.
-            global.equipment_requests[registration_number] = nil
+    -- Bail-out, no equipment delivery requests registered for this entity.
+    if not equipment_request then
+        return
+    end
 
-            if equipment_request.valid then
-                equipment_request.equipment_request_proxy.destroy{raise_destroy = true}
+    -- Spill delivered items around entity if it is valid, otherwise fallback to delivery box.
+    local spill_position =
+        equipment_request.entity.valid and equipment_request.entity.position or
+        equipment_request.delivery_box.position
+
+    -- Spilled items will be ordered for deconstruction (to hopefully make it less annoying for player).
+    local deconstruction_force = equipment_request.delivery_box.force
+
+    -- Spill all equipment that might have been delivered but not inserted into the requesting entity.
+    for i = 1, #equipment_request.delivery_inventory do
+
+        local slot_stack = equipment_request.delivery_inventory[i]
+
+        if slot_stack.valid_for_read then
+
+            local surface = equipment_request.delivery_box.surface
+            local spilled_items = surface.spill_item_stack(equipment_request.delivery_box.position, slot_stack, false, nil, false)
+            slot_stack.count = 0
+
+            for _, item in pairs(spilled_items) do
+                item.order_deconstruction(deconstruction_force)
             end
 
         end
+
+    end
+
+    -- Destroy the delivery container. This will get rid of the item request proxy as well.
+    equipment_request.delivery_box.destroy()
+
+    -- Deregister equipment request.
+    global.equipment_requests[unit_number] = nil
+
+end
+
+
+--- Installs equipment from delivery box into requesting entity.
+--
+-- @param equipment_request {
+--         entity = LuaEntity,
+--         equipment = { string = { EquipmentPosition },
+--         delivery_box = LuaEntity,
+--         delivery_inventory = LuaInventory,
+--         delivery_request_proxy = LuaEntity
+--     }
+--
+function equipment.install_delivered_equipment(equipment_request)
+
+    -- Sort the inventory so we have non-empty slots at the very beginning only.
+    equipment_request.delivery_inventory.sort_and_merge()
+
+    -- Spilled items will be ordered for deconstruction (to hopefully make it less annoying for player).
+    local deconstruction_force = equipment_request.delivery_box.force
+
+    for slot_index = 1, #equipment_request.delivery_inventory do
+
+        local slot_stack = equipment_request.delivery_inventory[slot_index]
+
+        -- Break out of the loop since inventory is sorted, and we have hit the first empty slot.
+        if not slot_stack.valid_for_read then
+            break
+        end
+
+        -- All the required equipment by this name has already been installed, spill the excess onto the ground.
+        if table_size(equipment_request.equipment[slot_stack.name] or {}) == 0  then
+
+            local surface = equipment_request.entity.surface
+            local spilled_items = surface.spill_item_stack(equipment_request.entity.position, slot_stack, false, nil, false)
+            slot_stack.count = 0
+
+            for _, item in pairs(spilled_items) do
+                item.order_deconstruction(deconstruction_force)
+            end
+
+        -- Proceed with installing the equipment. Try to insert every single item from the stack until we run out of
+        -- registered positions.
+        else
+
+            for _ = 1, slot_stack.count do
+
+                -- Grab the first position.
+                position = table.remove(equipment_request.equipment[slot_stack.name], 1)
+
+                -- We ran out of positions, remaining items are no longer needed.
+                if not position then
+
+                    local surface = equipment_request.entity.surface
+                    local spilled_items = surface.spill_item_stack(equipment_request.entity.position, slot_stack, false, nil, false)
+                    slot_stack.count = 0
+
+                    for _, item in pairs(spilled_items) do
+                        item.order_deconstruction(deconstruction_force)
+                    end
+
+                    break
+
+                end
+
+                -- Try to place equipment.
+                if equipment_request.entity.grid.put{name = slot_stack.name, position = position} then
+                    slot_stack.count = slot_stack.count - 1
+                end
+
+            end
+
+        end
+
     end
 
 end
 
 
---- Processes received equipment from an equipment request.
+--- Processes all equipment deliveries, updating delivery box positions and installing delivered equipment.
 --
--- @param equipment_request {
---     entity = LuaEntity,
---     inventories = { LuaInventory },
---     name = string,
---     position = EquipmentPosition,
---     request_proxy = LuaEntity,
--- } Equipment request for received equipment.
+-- Function is primarily meant to be called periodically every N ticks.
 --
-function equipment.process_received_equipment(equipment_request)
+function equipment.process_equipment_deliveries()
 
-    local equipment_
-    local index
+    for unit_number, equipment_request in pairs(global.equipment_requests) do
 
-    for _, inventory in pairs(equipment_request.inventories) do
-        equipment_, index = inventory.find_item_stack(equipment_request.name)
-        if equipment_ then
-            break
+        -- If requesting entity is no longer valid, clear the request.
+        if not equipment_request.entity.valid then
+            equipment.clear_equipment_delivery_request(unit_number)
+
+        -- Update delivery box position and install delivered equipment if delivery box and delivery target are on the same surface.
+        elseif equipment_request.delivery_box.surface == equipment_request.entity.surface then
+            equipment_request.delivery_box.teleport(equipment_request.entity.position)
+            equipment.install_delivered_equipment(equipment_request)
+
+        -- If delivery box and delivery target are not on the same surface, we need to recreate the box and item request proxy.
+        else
+
+            local old_delivery_box = equipment_request.delivery_box
+            local old_delivery_request_proxy = equipment_request.delivery_request_proxy
+
+            equipment_request.delivery_box = old_delivery_box.clone{
+                position = equipment_request.entity.position,
+                surface = equipment_request.entity.surface
+            }
+            equipment_request.delivery_inventory = equipment_request.delivery_box.get_inventory(defines.inventory.item_main)
+            equipment_request.delivery_request_proxy = equipment_request.delivery_box.surface.create_entity{
+                name = "item-request-proxy",
+                target = equipment_request.delivery_box,
+                modules = old_delivery_request_proxy.item_requests,
+                position = equipment_request.delivery_box.position,
+                force = equipment_request.delivery_box.force,
+            }
+
+            old_delivery_box.destroy()
+
+            equipment.install_delivered_equipment(equipment_request)
         end
+
+        -- Requested equipment has been installed (if possible) or delivered.
+        if  table_size(equipment_request.equipment) == 0 or
+            not equipment_request.delivery_request_proxy.valid then
+
+            equipment.clear_equipment_delivery_request(unit_number)
+
+        end
+
     end
 
-    if equipment_ then
-        equipment_request.entity.grid.put({name = equipment_request.name, position = equipment_request.position})
-        equipment_.count  = equipment_.count - 1
+    -- Stop processing equipment deliveries, there are none left.
+    if table_size(global.equipment_requests) == 0 then
+        script.on_nth_tick(20, nil)
     end
 
 end
@@ -216,13 +376,9 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
         end
     end
 
-    -- Request missing equipment delivery via construction bots. Clear any previous requests.
-    equipment.clear_equipment_delivery_requests(provider_entity)
-    for name, position_list in pairs(missing_equipment) do
-        for _, position in pairs(position_list) do
-            equipment.add_equipment_delivery_request(provider_entity, name, position)
-        end
-    end
+    -- Request missing equipment delivery.
+    equipment.clear_equipment_delivery_request(provider_entity.unit_number)
+    equipment.add_equipment_delivery_request(provider_entity, missing_equipment)
 
 end
 

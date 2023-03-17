@@ -97,25 +97,4 @@ function handlers.on_configuration_changed(data)
 end
 
 
---- Processes entity destruction events (primarily for item request proxies).
---
--- @param event EventData Event data as passed-in by the game engine.
---
-function handlers.on_entity_destroyed(data)
-
-    local equipment_request = global.equipment_requests[data.registration_number]
-
-    if equipment_request then
-
-        if equipment_request.entity.valid then
-            equipment.process_received_equipment(equipment_request)
-        end
-
-        global.equipment_requests[data.registration_number] = nil
-
-    end
-
-end
-
-
 return handlers

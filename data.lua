@@ -3,3 +3,4 @@
 
 
 require("prototypes.sprite")
+require("prototypes.entity")
