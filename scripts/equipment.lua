@@ -108,6 +108,26 @@ function equipment.add_equipment_delivery_request(entity, requested_equipment)
 end
 
 
+--- Spills item stack around the first valid passed-in entity, or at fallback position.
+--
+-- @param item_stack SimpleItemStack|LuaItemStack Item stack to spill.
+-- @param surface Surface to spill the items on.
+-- @param position MapPosition Position to spill the items around.
+-- @param force LuaForce Force to use when ordering deconstruction.
+--
+function equipment.spill_and_deconstruct(item_stack, surface, position, force)
+
+    local spilled_item_entities = surface.spill_item_stack(position, item_stack, false, nil, false)
+
+    for _, item_entity in pairs(spilled_item_entities) do
+        item_entity.order_deconstruction(force)
+    end
+
+    item_stack.count = 0
+
+end
+
+
 --- Clears equipment delivery request for entity identified by passed-in unit number.
 --
 -- Unit number is used in order to avoid having to deal with invalid entities (where unit number can no longer be
@@ -126,14 +146,6 @@ function equipment.clear_equipment_delivery_request(unit_number)
         return
     end
 
-    -- Spill delivered items around entity if it is valid, otherwise fallback to delivery box.
-    local spill_position =
-        equipment_request.entity.valid and equipment_request.entity.position or
-        equipment_request.delivery_box.position
-
-    -- Spilled items will be ordered for deconstruction (to hopefully make it less annoying for player).
-    local deconstruction_force = equipment_request.delivery_box.force
-
     -- Spill all equipment that might have been delivered but not inserted into the requesting entity.
     for i = 1, #equipment_request.delivery_inventory do
 
@@ -141,13 +153,12 @@ function equipment.clear_equipment_delivery_request(unit_number)
 
         if slot_stack.valid_for_read then
 
-            local surface = equipment_request.delivery_box.surface
-            local spilled_items = surface.spill_item_stack(equipment_request.delivery_box.position, slot_stack, false, nil, false)
-            slot_stack.count = 0
-
-            for _, item in pairs(spilled_items) do
-                item.order_deconstruction(deconstruction_force)
-            end
+            equipment.spill_and_deconstruct(
+                slot_stack,
+                equipment_request.delivery_box.surface,
+                equipment_request.entity.valid and equipment_request.entity.position or equipment_request.delivery_box.position,
+                equipment_request.delivery_box.force
+            )
 
         end
 
@@ -177,9 +188,6 @@ function equipment.install_delivered_equipment(equipment_request)
     -- Sort the inventory so we have non-empty slots at the very beginning only.
     equipment_request.delivery_inventory.sort_and_merge()
 
-    -- Spilled items will be ordered for deconstruction (to hopefully make it less annoying for player).
-    local deconstruction_force = equipment_request.delivery_box.force
-
     for slot_index = 1, #equipment_request.delivery_inventory do
 
         local slot_stack = equipment_request.delivery_inventory[slot_index]
@@ -192,13 +200,12 @@ function equipment.install_delivered_equipment(equipment_request)
         -- All the required equipment by this name has already been installed, spill the excess onto the ground.
         if table_size(equipment_request.equipment[slot_stack.name] or {}) == 0  then
 
-            local surface = equipment_request.entity.surface
-            local spilled_items = surface.spill_item_stack(equipment_request.entity.position, slot_stack, false, nil, false)
-            slot_stack.count = 0
-
-            for _, item in pairs(spilled_items) do
-                item.order_deconstruction(deconstruction_force)
-            end
+            equipment.spill_and_deconstruct(
+                slot_stack,
+                equipment_request.entity.surface,
+                equipment_request.entity.position,
+                equipment_request.entity.force
+            )
 
         -- Proceed with installing the equipment. Try to insert every single item from the stack until we run out of
         -- registered positions.
@@ -212,13 +219,12 @@ function equipment.install_delivered_equipment(equipment_request)
                 -- We ran out of positions, remaining items are no longer needed.
                 if not position then
 
-                    local surface = equipment_request.entity.surface
-                    local spilled_items = surface.spill_item_stack(equipment_request.entity.position, slot_stack, false, nil, false)
-                    slot_stack.count = 0
-
-                    for _, item in pairs(spilled_items) do
-                        item.order_deconstruction(deconstruction_force)
-                    end
+                    equipment.spill_and_deconstruct(
+                        slot_stack,
+                        equipment_request.entity.surface,
+                        equipment_request.entity.position,
+                        equipment_request.entity.force
+                    )
 
                     break
 
@@ -371,7 +377,12 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
     for _, equipment_list in pairs(excess_equipment) do
         for _, equipment_ in pairs(equipment_list) do
             if provider_inventory.insert(equipment_) == 0 then
-                provider_entity.surface.spill_item_stack(provider_entity.position, equipment_, false, nil, false)
+                equipment.spill_and_deconstruct(
+                    equipment_,
+                    provider_entity.surface,
+                    provider_entity.position,
+                    provider_entity.force
+                )
             end
         end
     end
