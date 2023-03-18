@@ -197,46 +197,26 @@ function equipment.install_delivered_equipment(equipment_request)
             break
         end
 
-        -- All the required equipment by this name has already been installed, spill the excess onto the ground.
-        if table_size(equipment_request.equipment[slot_stack.name] or {}) == 0  then
+        -- Insert no more equipment than available/requested.
+        for _ = 1, math.min(slot_stack.count, table_size(equipment_request.equipment[slot_stack.name] or {})) do
 
+            position = table.remove(equipment_request.equipment[slot_stack.name], 1)
+
+            -- Try to place equipment.
+            if equipment_request.entity.grid.put{name = slot_stack.name, position = position} then
+                slot_stack.count = slot_stack.count - 1
+            end
+
+        end
+
+        -- Spill the excess equipment on the ground.
+        if slot_stack.valid_for_read then
             equipment.spill_and_deconstruct(
                 slot_stack,
                 equipment_request.entity.surface,
                 equipment_request.entity.position,
                 equipment_request.entity.force
             )
-
-        -- Proceed with installing the equipment. Try to insert every single item from the stack until we run out of
-        -- registered positions.
-        else
-
-            for _ = 1, slot_stack.count do
-
-                -- Grab the first position.
-                position = table.remove(equipment_request.equipment[slot_stack.name], 1)
-
-                -- We ran out of positions, remaining items are no longer needed.
-                if not position then
-
-                    equipment.spill_and_deconstruct(
-                        slot_stack,
-                        equipment_request.entity.surface,
-                        equipment_request.entity.position,
-                        equipment_request.entity.force
-                    )
-
-                    break
-
-                end
-
-                -- Try to place equipment.
-                if equipment_request.entity.grid.put{name = slot_stack.name, position = position} then
-                    slot_stack.count = slot_stack.count - 1
-                end
-
-            end
-
         end
 
     end
