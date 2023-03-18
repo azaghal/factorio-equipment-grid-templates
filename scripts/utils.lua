@@ -14,7 +14,7 @@ local utils = {}
 function utils.get_opened_gui_equipment_grid(player)
 
     local equipment_grid =
-        player.opened_gui_type == defines.gui_type.controller and player.character.grid or
+        player.opened_gui_type == defines.gui_type.controller and player.character and player.character.grid or
         player.opened_gui_type == defines.gui_type.entity and player.opened.grid or
         player.opened_gui_type == defines.gui_type.item and player.opened and player.opened.object_name == "LuaEquipmentGrid" and player.opened or
         nil
