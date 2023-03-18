@@ -40,6 +40,38 @@ function equipment.export_into_blueprint(equipment_grid, blueprint, include_equi
 end
 
 
+--- Creates delivery box and item request proxy for passed-in item requests.
+--
+-- @param entity LuaEntity Entity for which to create the delivery box.
+-- @param item_requests { string = uint } Items to request for delivery.
+--
+-- @return (LuaEntity, LuaInventory, LuaEntity) Delivery box entity, delivery box inventory, and delivery item request proxy.
+--
+function equipment.create_delivery_box(entity, item_requests)
+
+    -- Container that will hold the received equipment.
+    local delivery_box = entity.surface.create_entity{
+        name = "egt-delivery-box",
+        position = entity.position,
+        force = entity.force,
+    }
+
+    -- Inventory corresponding to delivery box.
+    local delivery_inventory = delivery_box.get_inventory(defines.inventory.item_main)
+
+    -- Item request proxy that construction bots will respond to.
+    local delivery_request_proxy = entity.surface.create_entity{
+        name = "item-request-proxy",
+        target = delivery_box,
+        modules = item_requests,
+        position = delivery_box.position,
+        force = delivery_box.force,
+    }
+
+    return delivery_box, delivery_inventory, delivery_request_proxy
+end
+
+
 --- Adds equipment delivery request for an entity.
 --
 -- Equipment requests are registred via global.equipment_requests data structure, which maps unit number of target
@@ -70,23 +102,8 @@ function equipment.add_equipment_delivery_request(entity, requested_equipment)
         return
     end
 
-    -- Create delivery box for requesting the equipment.
-    local delivery_box = entity.surface.create_entity{
-        name = "egt-delivery-box",
-        position = entity.position,
-        force = entity.force,
-    }
-
-    local delivery_inventory = delivery_box.get_inventory(defines.inventory.item_main)
-
-    -- Create item request proxy for delivering equipment.
-    local equipment_request_proxy = entity.surface.create_entity{
-        name = "item-request-proxy",
-        target = delivery_box,
-        modules = equipment_modules,
-        position = delivery_box.position,
-        force = delivery_box.force,
-    }
+    local delivery_box, delivery_inventory, delivery_request_proxy =
+        equipment.create_delivery_box(entity, equipment_modules)
 
     -- Prepare request information.
     local equipment_request = {
@@ -94,7 +111,7 @@ function equipment.add_equipment_delivery_request(entity, requested_equipment)
         equipment = factorio_util.table.deepcopy(requested_equipment),
         delivery_box = delivery_box,
         delivery_inventory = delivery_inventory,
-        delivery_request_proxy = factorio_util.table.deepcopy(equipment_request_proxy)
+        delivery_request_proxy = delivery_request_proxy
     }
 
     -- Regiser data for processing.
@@ -244,25 +261,23 @@ function equipment.process_equipment_deliveries()
         -- If delivery box and delivery target are not on the same surface, we need to recreate the box and item request proxy.
         else
 
-            local old_delivery_box = equipment_request.delivery_box
-            local old_delivery_request_proxy = equipment_request.delivery_request_proxy
+            -- Item requests will be reused for new box.
+            local item_requests = equipment_request.delivery_request_proxy.item_requests
 
-            equipment_request.delivery_box = old_delivery_box.clone{
-                position = equipment_request.entity.position,
-                surface = equipment_request.entity.surface
-            }
-            equipment_request.delivery_inventory = equipment_request.delivery_box.get_inventory(defines.inventory.item_main)
-            equipment_request.delivery_request_proxy = equipment_request.delivery_box.surface.create_entity{
-                name = "item-request-proxy",
-                target = equipment_request.delivery_box,
-                modules = old_delivery_request_proxy.item_requests,
-                position = equipment_request.delivery_box.position,
-                force = equipment_request.delivery_box.force,
-            }
-
-            old_delivery_box.destroy()
-
+            -- Install equipment from existing delivery box and destroy it.
             equipment.install_delivered_equipment(equipment_request)
+            equipment_request.delivery_box.destroy()
+
+            -- Create new delivery box.
+            local new_delivery_box, new_delivery_inventory, new_delivery_request_proxy =
+                equipment.create_delivery_box(equipment_request.entity, item_requests)
+
+            equipment_request.delivery_box = new_delivery_box
+            equipment_request.delivery_inventory = new_delivery_inventory
+            equipment_request.delivery_request_proxy = new_delivery_request_proxy
+
+
+
         end
 
         -- Requested equipment has been installed (if possible) or delivered.
