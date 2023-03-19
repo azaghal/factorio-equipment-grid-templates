@@ -57,4 +57,32 @@ function utils.is_player_holding_blank_editable_blueprint(player)
 end
 
 
+--- Finds a non-empty item stack by item name from the passed-in source.
+--
+-- @param name string Name of an item to find.
+-- @param source LuaInventory | { LuaItemStack|SimpleItemStack } Inventrory or list of item stacks to search through.
+--
+-- @return LuaItemStack|SimpleItemStack|nil Matching non-empty item stack.
+--
+function utils.find_item_stack(name, source)
+
+    if source.object_name == "LuaInventory" then
+
+        return source.find_item_stack(name)
+
+    elseif type(source) == "table" then
+
+        for _, item in pairs(source) do
+            if item.count > 0 and item.name == name then
+                return item
+            end
+        end
+
+    end
+
+    return nil
+
+end
+
+
 return utils

@@ -147,7 +147,7 @@ function main.import(player)
     local blueprint_entities = player.get_blueprint_entities()
     local configuration = template.constant_combinators_to_equipment_grid_configuration(blueprint_entities, equipment_grid.width)
 
-    equipment.import(equipment_grid, provider_inventory, entity, configuration)
+    equipment.import(entity, equipment_grid, provider_inventory, configuration)
 
 end
 

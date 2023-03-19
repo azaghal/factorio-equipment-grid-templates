@@ -3,6 +3,7 @@
 
 
 local template = require("scripts.template")
+local utils = require("scripts.utils")
 local factorio_util = require("util")
 
 
@@ -125,10 +126,10 @@ function equipment.add_equipment_delivery_request(entity, requested_equipment)
 end
 
 
---- Spills item stack around the first valid passed-in entity, or at fallback position.
+--- Spills item stack around the passed-in position.
 --
 -- @param item_stack SimpleItemStack|LuaItemStack Item stack to spill.
--- @param surface Surface to spill the items on.
+-- @param surface LuaSurface Surface to spill the items on.
 -- @param position MapPosition Position to spill the items around.
 -- @param force LuaForce Force to use when ordering deconstruction.
 --
@@ -141,6 +142,33 @@ function equipment.spill_and_deconstruct(item_stack, surface, position, force)
     end
 
     item_stack.count = 0
+
+end
+
+
+--- Discards items by placing them into passed-in inventory or spilling them to the ground.
+--
+-- @param item_stacks { SimpleItemStack|LuaItemStack } List of item stacks to spill.
+-- @param inventory LuaInventory|nil Inventory to insert the items into (if possible).
+-- @param surface LuaSurface Surface to spill the items on if inventory insertion fails.
+-- @param position MapPosition Position to spill the items around if inventory insertion fails.
+-- @param force LuaForce Force to use when ordering deconstruction of spilled items.
+--
+function equipment.discard_item_stacks(item_stacks, inventory, surface, position, force)
+
+    for _, item_stack in pairs(item_stacks) do
+
+        -- Insert as many items as possible into inventory.
+        if item_stack.count > 0 and inventory then
+            item_stack.count = item_stack.count - inventory.insert(item_stack)
+        end
+
+        -- Spill the remaining items from the stack.
+        if item_stack.count > 0 then
+            equipment.spill_and_deconstruct(item_stack, surface, position, force)
+        end
+
+    end
 
 end
 
@@ -298,35 +326,32 @@ function equipment.process_equipment_deliveries()
 end
 
 
---- Import equipment grid configuration.
+--- Removes excess equipment from the grid.
 --
--- @param equipment_grid LuaEquipmentGrid Equipment grid for which to import the configuration.
--- @param provider_inventory LuaInventory Inventory to use as source of equipment for immediate insertion.
--- @param provider_entity LuaEntity Entity to use as source of equipment for delivery via construction bots.
--- @param configuration { { name = string, position = EquipmentPosition } } List of equipment to import into equipment grid.
+-- Excess equipment is equipment that is:
 --
-function equipment.import(equipment_grid, provider_inventory, provider_entity, configuration)
+--     - Not included in the equipment grid configuration.
+--     - Placed in wrong position.
+--
+-- @param equipment_grid LuaEquipmentGrid Equipment grid to remove the excess equipment from.
+-- @param equipment_grid_configuration { { name = string, position = EquipmentPosition } }
+--     Configuration to compare the equipment grid against.
+--
+-- @return { SimpleItemStack } List of removed equipment.
+--
+function equipment.remove_excess_equipment(equipment_grid, equipment_grid_configuration)
 
-    -- Track configuration equipment (by index) that is already in correct place.
-    local already_fulfilled = {}
-
-    -- Track excess equipment (by name) that should be remove from equipment grid.
     local excess_equipment = {}
 
-    -- Track missing equipment (by name). Maps name to list of positions in the equipment grid.
-    local missing_equipment = {}
-
-    -- Find configuration equipment that is already correctly placed in the grid, and remove all other equipment.
-    for _, current_equipment in pairs(equipment_grid.equipment) do
+    for _, grid_equipment in pairs(equipment_grid.equipment) do
 
         local keep = false
-        for requested_equipment_index, requested_equipment in pairs(configuration) do
 
-            if  current_equipment.position.x == requested_equipment.position.x and
-                current_equipment.position.y == requested_equipment.position.y and
-                current_equipment.name == requested_equipment.name then
+        for _, configuration_equipment in pairs(equipment_grid_configuration) do
 
-                already_fulfilled[requested_equipment_index] = true
+            if  grid_equipment.position.x == configuration_equipment.position.x and
+                grid_equipment.position.y == configuration_equipment.position.y and
+                grid_equipment.name == configuration_equipment.name then
 
                 keep = true
                 break
@@ -336,55 +361,103 @@ function equipment.import(equipment_grid, provider_inventory, provider_entity, c
         end
 
         if not keep then
-            local removed_equipment = equipment_grid.take{equipment = current_equipment}
-            excess_equipment[removed_equipment.name] = excess_equipment[removed_equipment.name] or {}
-            table.insert(excess_equipment[removed_equipment.name], removed_equipment)
+            local removed_equipment = equipment_grid.take{equipment = grid_equipment}
+            table.insert(excess_equipment, removed_equipment)
         end
 
     end
 
-    -- Try to satisfy configuration using equipment removed from the grid or from provider inventory.
-    for requested_equipment_index, requested_equipment in pairs(configuration) do
+    return excess_equipment
 
-        if not already_fulfilled[requested_equipment_index] then
+end
 
-            local equipment_ =
-                table.remove(excess_equipment[requested_equipment.name] or {}) or
-                provider_inventory.find_item_stack(requested_equipment.name)
 
-            if equipment_ then
+--- Populates equipment grid according to passed-in configuration using equipment from passed-in source.
+--
+-- @param equipment_grid LuaEquipmentGrid Equipment grid to insert the equipment into.
+-- @param equipment_grid_configuration { { name = string, position = EquipmentPosition } }
+--     Equipment to install into the grid.
+-- @param source LuaInventory | { LuaItemStack|SimpleItemStack } Inventory or list of items to use as source.
+--
+-- @return ( { name = string, position = EquipmentPosition }, { name = string, position = EquipmentPosition } )
+--     Two equipment grid configurations - one with missing equipment, and one with equipment that could not be
+--     installed due to insufficient space.
+--
+function equipment.populate_equipment_grid_from_source(equipment_grid, equipment_grid_configuration, source)
 
-                equipment_grid.put({name = requested_equipment.name, position = requested_equipment.position})
-                equipment_.count = equipment_.count - 1
+    local missing = {}
+    local failed = {}
 
-            else
+    for _, configuration_equipment in pairs(equipment_grid_configuration) do
 
-                missing_equipment[requested_equipment.name] = missing_equipment[requested_equipment.name] or {}
-                table.insert(missing_equipment[requested_equipment.name], requested_equipment.position)
+        local existing_equipment = equipment_grid.get(configuration_equipment.position)
+        local source_equipment = utils.find_item_stack(configuration_equipment.name, source)
 
-            end
+        -- Non-matching equipment is already occupying the position.
+        if existing_equipment and existing_equipment.name ~= configuration_equipment.name then
+            table.insert(failed, factorio_util.table.deepcopy(configuration_equipment))
+
+        -- Position is empty, and equipment from inventory was inserted.
+        elseif not existing_equipment and source_equipment and
+               equipment_grid.put({name = configuration_equipment.name, position = configuration_equipment.position}) then
+            source_equipment.count = source_equipment.count - 1
+
+        -- Position is empty, but insertion has failed.
+        elseif not existing_equipment and source_equipment then
+            table.insert(failed, factorio_util.table.deepcopy(configuration_equipment))
+
+        -- Position is empty, but we are missing equipment in the inventory.
+        elseif not existing_equipment and not source_equipment then
+            table.insert(missing, factorio_util.table.deepcopy(configuration_equipment))
 
         end
 
     end
 
-    -- Store remaining excess equipment in provider inventory or spill it on the ground if no room is available.
-    for _, equipment_list in pairs(excess_equipment) do
-        for _, equipment_ in pairs(equipment_list) do
-            if provider_inventory.insert(equipment_) == 0 then
-                equipment.spill_and_deconstruct(
-                    equipment_,
-                    provider_entity.surface,
-                    provider_entity.position,
-                    provider_entity.force
-                )
-            end
-        end
-    end
+    return missing, failed
+
+end
+
+
+--- Installs equipment according to grid configuration.
+--
+-- The equipment is installed from the following sources (in order of preference):
+--
+--     - Equipment grid itself (misplaced/excess equipment).
+--     - Provider inventory (usually player's own inventory).
+--     - Construction bots deliveries to entity, if equipment grid is associated with an entity.
+--
+-- @param entity LuaEntity|nil Entity that owns the equipment grid. Pass-in nil if equipment grid is not associated with
+--     an entity.
+-- @param equipment_grid LuaEquipmentGrid Equipment grid for which to import the configuration.
+-- @param provider_inventory LuaInventory Inventory to use as source of equipment for immediate insertion.
+-- @param configuration { { name = string, position = EquipmentPosition } } List of equipment to import into equipment
+--     grid.
+--
+function equipment.import(entity, equipment_grid, provider_inventory, configuration)
+
+    local excess_equipment
+    local missing_configuration
+    local failed_configuration
+
+    excess_equipment = equipment.remove_excess_equipment(equipment_grid, configuration)
+
+    missing_configuration, failed_configuration =
+        equipment.populate_equipment_grid_from_source(equipment_grid, configuration, excess_equipment)
+
+    missing_configuration, failed_configuration =
+        equipment.populate_equipment_grid_from_source(equipment_grid, missing_configuration, provider_inventory)
+
+    equipment.discard_item_stacks(excess_equipment, provider_inventory, entity.surface, entity.position, entity.force)
 
     -- Request missing equipment delivery.
-    equipment.clear_equipment_delivery_request(provider_entity.unit_number)
-    equipment.add_equipment_delivery_request(provider_entity, missing_equipment)
+    local missing_equipment = {}
+    for _, equipment_ in pairs(missing_configuration) do
+        missing_equipment[equipment_.name] = missing_equipment[equipment_.name] or {}
+        table.insert(missing_equipment[equipment_.name], equipment_.position)
+    end
+    equipment.clear_equipment_delivery_request(entity.unit_number)
+    equipment.add_equipment_delivery_request(entity, missing_equipment)
 
 end
 
