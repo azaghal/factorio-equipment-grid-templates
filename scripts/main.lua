@@ -140,14 +140,18 @@ function main.import(player)
 
     local entity = utils.get_opened_gui_entity(player)
     local equipment_grid = utils.get_opened_gui_equipment_grid(player)
-    local provider_inventory =
-        player.can_reach_entity(entity) and player.get_main_inventory() or
-        nil
+
+    local provider_inventories = entity and utils.get_entity_inventories(entity) or {}
+    local discard_inventory = player.can_reach_entity(entity) and player.get_main_inventory() or nil
+
+    if discard_inventory then
+        table.insert(provider_inventories, discard_inventory)
+    end
 
     local blueprint_entities = player.get_blueprint_entities()
     local configuration = template.constant_combinators_to_equipment_grid_configuration(blueprint_entities, equipment_grid.width)
 
-    equipment.import(entity, equipment_grid, provider_inventory, configuration)
+    equipment.import(entity, equipment_grid, configuration, provider_inventories, discard_inventory)
 
 end
 

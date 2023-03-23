@@ -437,24 +437,30 @@ end
 -- @param entity LuaEntity|nil Entity that owns the equipment grid. Pass-in nil if equipment grid is not associated with
 --     an entity.
 -- @param equipment_grid LuaEquipmentGrid Equipment grid for which to import the configuration.
--- @param provider_inventory LuaInventory Inventory to use as source of equipment for immediate insertion.
 -- @param configuration { string = { EquipmentPosition } } Equipment configuration to apply against the grid.
+-- @param provider_inventories LuaInventory Inventories to use as source of equipment for immediate insertion.
+-- @param discard_inventory LuaInventory Inventory to discard into the excess equipment removed from the grid.
 --
-function equipment.import(entity, equipment_grid, provider_inventory, configuration)
+function equipment.import(entity, equipment_grid, configuration, provider_inventories, discard_inventory)
 
     local excess_equipment
     local missing_configuration
     local failed_configuration
+    local failed_configurations = {}
 
     excess_equipment = equipment.remove_excess_equipment(equipment_grid, configuration)
 
     missing_configuration, failed_configuration =
         equipment.populate_equipment_grid_from_source(equipment_grid, configuration, excess_equipment)
+    table.insert(failed_configurations, failed_configuration)
 
-    missing_configuration, failed_configuration =
-        equipment.populate_equipment_grid_from_source(equipment_grid, missing_configuration, provider_inventory)
+    for _, inventory in pairs(provider_inventories)do
+        missing_configuration, failed_configuration =
+            equipment.populate_equipment_grid_from_source(equipment_grid, missing_configuration, inventory)
+        table.insert(failed_configurations, failed_configuration)
+    end
 
-    equipment.discard_item_stacks(excess_equipment, provider_inventory, entity.surface, entity.position, entity.force)
+    equipment.discard_item_stacks(excess_equipment, discard_inventory, entity.surface, entity.position, entity.force)
 
     -- Request missing equipment delivery.
     equipment.clear_equipment_delivery_request(entity.unit_number)
