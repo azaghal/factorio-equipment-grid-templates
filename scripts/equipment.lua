@@ -381,7 +381,7 @@ end
 --
 -- @return ( string = { EquipmentPosition }, { string = { EquipmentPosition } )
 --     Two equipment grid configurations - one with missing equipment, and one with equipment that could not be
---     installed due to insufficient space.
+--     installed (insufficient space or not allowed in the grid).
 --
 function equipment.populate_equipment_grid_from_source(equipment_grid, configuration, source)
 
@@ -441,6 +441,9 @@ end
 -- @param provider_inventories LuaInventory Inventories to use as source of equipment for immediate insertion.
 -- @param discard_inventory LuaInventory Inventory to discard into the excess equipment removed from the grid.
 --
+-- @return { string = { EquipmentPosition } } Equipment grid configuration with equipment that could not be installed
+--     (insufficient space or not allowed in the grid).
+--
 function equipment.import(entity, equipment_grid, configuration, provider_inventories, discard_inventory)
 
     local excess_equipment
@@ -466,6 +469,18 @@ function equipment.import(entity, equipment_grid, configuration, provider_invent
     equipment.clear_equipment_delivery_request(entity.unit_number)
     equipment.add_equipment_delivery_request(entity, equipment_grid.unique_id, missing_configuration)
 
+    -- Merge all failed configurations for return result.
+    local merged_failed_configurations = {}
+    for _, failed_configuration in pairs(failed_configurations) do
+        for name, positions in pairs(failed_configuration) do
+            merged_failed_configurations[name] = merged_failed_configurations[name] or {}
+            for _, position in pairs(positions) do
+                table.insert(merged_failed_configurations[name], position)
+            end
+        end
+    end
+
+    return merged_failed_configurations
 end
 
 
