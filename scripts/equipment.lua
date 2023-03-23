@@ -79,22 +79,22 @@ end
 -- entity to equipment request information. The equipment request has the following keys available:
 --
 --     - entity (LuaEntity), entity where the equipment should be installed.
---     - equipment ({ string = { EquipmentPosition }), list of requested equipment, mapping equipment names to
---       list of positions in grid.
+--     - configuration ({ string = { EquipmentPosition }), configuration to apply against equipment grid, mapping
+--       equipment names to list of positions in grid.
 --     - delivery_box (LuaEntity), delivery box for storing the requested equipment prior to installation.
 --     - delivery_inventory (LuaInventory), delivery box where the equipment is temporarily stored.
 --     - delivery_request_proxy (LuaEntity), item request proxy entity used to deliver the equipment into delviery
 --       box/inventory.
 --
 -- @param entity Entity with equipment grid where equipment should be installed.
--- @param requested_equipment { string = { EquipmentPosition } } List of equipment to install. Maps equipment names into
---     list of equipment grid positions.
+-- @param configuration { string = { EquipmentPosition } } Configuration to apply against the equipment grid. Maps
+--     equipment names into list of equipment grid positions.
 --
-function equipment.add_equipment_delivery_request(entity, requested_equipment)
+function equipment.add_equipment_delivery_request(entity, configuration)
 
     -- Set-up list of equipment to deliver.
     local equipment_modules = {}
-    for name, positions in pairs(requested_equipment) do
+    for name, positions in pairs(configuration) do
         equipment_modules[name] = table_size(positions)
     end
 
@@ -109,7 +109,7 @@ function equipment.add_equipment_delivery_request(entity, requested_equipment)
     -- Prepare request information.
     local equipment_request = {
         entity = entity,
-        equipment = factorio_util.table.deepcopy(requested_equipment),
+        configuration = factorio_util.table.deepcopy(configuration),
         delivery_box = delivery_box,
         delivery_inventory = delivery_inventory,
         delivery_request_proxy = delivery_request_proxy
@@ -222,7 +222,7 @@ end
 --
 -- @param equipment_request {
 --         entity = LuaEntity,
---         equipment = { string = { EquipmentPosition },
+--         configuration = { string = { EquipmentPosition },
 --         delivery_box = LuaEntity,
 --         delivery_inventory = LuaInventory,
 --         delivery_request_proxy = LuaEntity
@@ -243,9 +243,9 @@ function equipment.install_delivered_equipment(equipment_request)
         end
 
         -- Insert no more equipment than available/requested.
-        for _ = 1, math.min(slot_stack.count, table_size(equipment_request.equipment[slot_stack.name] or {})) do
+        for _ = 1, math.min(slot_stack.count, table_size(equipment_request.configuration[slot_stack.name] or {})) do
 
-            position = table.remove(equipment_request.equipment[slot_stack.name], 1)
+            position = table.remove(equipment_request.configuration[slot_stack.name], 1)
 
             -- Try to place equipment.
             if equipment_request.entity.grid.put{name = slot_stack.name, position = position} then
@@ -304,12 +304,10 @@ function equipment.process_equipment_deliveries()
             equipment_request.delivery_inventory = new_delivery_inventory
             equipment_request.delivery_request_proxy = new_delivery_request_proxy
 
-
-
         end
 
         -- Requested equipment has been installed (if possible) or delivered.
-        if  table_size(equipment_request.equipment) == 0 or
+        if  table_size(equipment_request.configuration) == 0 or
             not equipment_request.delivery_request_proxy.valid then
 
             equipment.clear_equipment_delivery_request(unit_number)
@@ -334,12 +332,12 @@ end
 --     - Placed in wrong position.
 --
 -- @param equipment_grid LuaEquipmentGrid Equipment grid to remove the excess equipment from.
--- @param equipment_grid_configuration { { name = string, position = EquipmentPosition } }
+-- @param configuration { string = { EquipmentPosition } }
 --     Configuration to compare the equipment grid against.
 --
 -- @return { SimpleItemStack } List of removed equipment.
 --
-function equipment.remove_excess_equipment(equipment_grid, equipment_grid_configuration)
+function equipment.remove_excess_equipment(equipment_grid, configuration)
 
     local excess_equipment = {}
 
@@ -347,15 +345,11 @@ function equipment.remove_excess_equipment(equipment_grid, equipment_grid_config
 
         local keep = false
 
-        for _, configuration_equipment in pairs(equipment_grid_configuration) do
+        for _, position in pairs(configuration[grid_equipment.name] or {}) do
 
-            if  grid_equipment.position.x == configuration_equipment.position.x and
-                grid_equipment.position.y == configuration_equipment.position.y and
-                grid_equipment.name == configuration_equipment.name then
-
+            if  grid_equipment.position.x == position.x and grid_equipment.position.y == position.y then
                 keep = true
                 break
-
             end
 
         end
@@ -375,40 +369,47 @@ end
 --- Populates equipment grid according to passed-in configuration using equipment from passed-in source.
 --
 -- @param equipment_grid LuaEquipmentGrid Equipment grid to insert the equipment into.
--- @param equipment_grid_configuration { { name = string, position = EquipmentPosition } }
---     Equipment to install into the grid.
+-- @param configuration { string = { EquipmentPosition } }
+--     Equipment configuration to apply against the grid.
 -- @param source LuaInventory | { LuaItemStack|SimpleItemStack } Inventory or list of items to use as source.
 --
--- @return ( { name = string, position = EquipmentPosition }, { name = string, position = EquipmentPosition } )
+-- @return ( string = { EquipmentPosition }, { string = { EquipmentPosition } )
 --     Two equipment grid configurations - one with missing equipment, and one with equipment that could not be
 --     installed due to insufficient space.
 --
-function equipment.populate_equipment_grid_from_source(equipment_grid, equipment_grid_configuration, source)
+function equipment.populate_equipment_grid_from_source(equipment_grid, configuration, source)
 
     local missing = {}
     local failed = {}
 
-    for _, configuration_equipment in pairs(equipment_grid_configuration) do
+    for name, positions in pairs(configuration) do
 
-        local existing_equipment = equipment_grid.get(configuration_equipment.position)
-        local source_equipment = utils.find_item_stack(configuration_equipment.name, source)
+        for _, position in pairs(positions) do
 
-        -- Non-matching equipment is already occupying the position.
-        if existing_equipment and existing_equipment.name ~= configuration_equipment.name then
-            table.insert(failed, factorio_util.table.deepcopy(configuration_equipment))
+            local existing_equipment = equipment_grid.get(position)
+            local source_equipment = utils.find_item_stack(name, source)
 
-        -- Position is empty, and equipment from inventory was inserted.
-        elseif not existing_equipment and source_equipment and
-               equipment_grid.put({name = configuration_equipment.name, position = configuration_equipment.position}) then
-            source_equipment.count = source_equipment.count - 1
+            -- Non-matching equipment is already occupying the position.
+            if existing_equipment and existing_equipment.name ~= name then
+                failed[name] = failed[name] or {}
+                table.insert(failed[name], position)
 
-        -- Position is empty, but insertion has failed.
-        elseif not existing_equipment and source_equipment then
-            table.insert(failed, factorio_util.table.deepcopy(configuration_equipment))
+            -- Position is empty, and equipment from inventory was inserted.
+            elseif not existing_equipment and source_equipment and
+                equipment_grid.put({name = name, position = position}) then
+                source_equipment.count = source_equipment.count - 1
 
-        -- Position is empty, but we are missing equipment in the inventory.
-        elseif not existing_equipment and not source_equipment then
-            table.insert(missing, factorio_util.table.deepcopy(configuration_equipment))
+            -- Position is empty, but insertion has failed.
+            elseif not existing_equipment and source_equipment then
+                failed[name] = failed[name] or {}
+                table.insert(failed[name], position)
+
+            -- Position is empty, but we are missing equipment in the inventory.
+            elseif not existing_equipment and not source_equipment then
+                missing[name] = missing[name] or {}
+                table.insert(missing[name], position)
+
+            end
 
         end
 
@@ -431,8 +432,7 @@ end
 --     an entity.
 -- @param equipment_grid LuaEquipmentGrid Equipment grid for which to import the configuration.
 -- @param provider_inventory LuaInventory Inventory to use as source of equipment for immediate insertion.
--- @param configuration { { name = string, position = EquipmentPosition } } List of equipment to import into equipment
---     grid.
+-- @param configuration { string = { EquipmentPosition } } Equipment configuration to apply against the grid.
 --
 function equipment.import(entity, equipment_grid, provider_inventory, configuration)
 
@@ -451,13 +451,8 @@ function equipment.import(entity, equipment_grid, provider_inventory, configurat
     equipment.discard_item_stacks(excess_equipment, provider_inventory, entity.surface, entity.position, entity.force)
 
     -- Request missing equipment delivery.
-    local missing_equipment = {}
-    for _, equipment_ in pairs(missing_configuration) do
-        missing_equipment[equipment_.name] = missing_equipment[equipment_.name] or {}
-        table.insert(missing_equipment[equipment_.name], equipment_.position)
-    end
     equipment.clear_equipment_delivery_request(entity.unit_number)
-    equipment.add_equipment_delivery_request(entity, missing_equipment)
+    equipment.add_equipment_delivery_request(entity, missing_configuration)
 
 end
 

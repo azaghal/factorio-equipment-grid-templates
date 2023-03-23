@@ -333,7 +333,7 @@ end
 -- @param combinators {BlueprintEntity} List of constant combinators representing inventory configuration.
 -- @param grid_width uint Width of equipment grid.
 --
--- @return { { name = string, position = EquipmentPosition } } List of equipment with equipment grid positions.
+-- @return { string = { EquipmentPosition } } Mapping between equipment names and list of equipment grid positions.
 --
 function template.constant_combinators_to_equipment_grid_configuration(combinators, grid_width)
 
@@ -363,7 +363,8 @@ function template.constant_combinators_to_equipment_grid_configuration(combinato
                 }
 
                 if filter.index == 1  then
-                    table.insert(configuration, { name = filter.signal.name, position = position })
+                    configuration[filter.signal.name] = configuration[filter.signal.name] or {}
+                    table.insert(configuration[filter.signal.name], position)
                 end
 
             end
