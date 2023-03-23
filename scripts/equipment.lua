@@ -458,7 +458,7 @@ function equipment.import(entity, equipment_grid, provider_inventory, configurat
 
     -- Request missing equipment delivery.
     equipment.clear_equipment_delivery_request(entity.unit_number)
-    equipment.add_equipment_delivery_request(entity, entity.grid.unique_id, missing_configuration)
+    equipment.add_equipment_delivery_request(entity, equipment_grid.unique_id, missing_configuration)
 
 end
 
