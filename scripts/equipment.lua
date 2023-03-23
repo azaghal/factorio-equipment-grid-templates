@@ -79,6 +79,7 @@ end
 -- entity to equipment request information. The equipment request has the following keys available:
 --
 --     - entity (LuaEntity), entity where the equipment should be installed.
+--     - equipment_grid_id (uint), unique ID of equipment grid. Used for checking if entity's grid might have changed.
 --     - configuration ({ string = { EquipmentPosition }), configuration to apply against equipment grid, mapping
 --       equipment names to list of positions in grid.
 --     - delivery_box (LuaEntity), delivery box for storing the requested equipment prior to installation.
@@ -87,10 +88,11 @@ end
 --       box/inventory.
 --
 -- @param entity Entity with equipment grid where equipment should be installed.
+-- @param equipment_grid_id uint Unique ID of associaed equipment grid.
 -- @param configuration { string = { EquipmentPosition } } Configuration to apply against the equipment grid. Maps
 --     equipment names into list of equipment grid positions.
 --
-function equipment.add_equipment_delivery_request(entity, configuration)
+function equipment.add_equipment_delivery_request(entity, equipment_grid_id, configuration)
 
     -- Set-up list of equipment to deliver.
     local equipment_modules = {}
@@ -109,6 +111,7 @@ function equipment.add_equipment_delivery_request(entity, configuration)
     -- Prepare request information.
     local equipment_request = {
         entity = entity,
+        equipment_grid_id = equipment_grid_id,
         configuration = factorio_util.table.deepcopy(configuration),
         delivery_box = delivery_box,
         delivery_inventory = delivery_inventory,
@@ -277,8 +280,11 @@ function equipment.process_equipment_deliveries()
 
     for unit_number, equipment_request in pairs(global.equipment_requests) do
 
-        -- If requesting entity is no longer valid, clear the request.
-        if not equipment_request.entity.valid then
+        -- If requesting entity or equipment grid are no longer valid, clear the request.
+        if  not equipment_request.entity.valid or
+            not equipment_request.entity.grid or not equipment_request.entity.grid.valid or
+            equipment_request.entity.grid.unique_id ~= equipment_request.equipment_grid_id then
+
             equipment.clear_equipment_delivery_request(unit_number)
 
         -- Update delivery box position and install delivered equipment if delivery box and delivery target are on the same surface.
@@ -452,7 +458,7 @@ function equipment.import(entity, equipment_grid, provider_inventory, configurat
 
     -- Request missing equipment delivery.
     equipment.clear_equipment_delivery_request(entity.unit_number)
-    equipment.add_equipment_delivery_request(entity, missing_configuration)
+    equipment.add_equipment_delivery_request(entity, entity.grid.unique_id, missing_configuration)
 
 end
 
