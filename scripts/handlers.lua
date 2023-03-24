@@ -29,7 +29,7 @@ function handlers.on_gui_opened(event)
 
     -- This is the only type of mod-supported inventory GUI that can be opened while a blueprint is being held (at least
     -- in vanilla game).
-    if event.gui_type == defines.gui_type.controller then
+    if event.gui_type == defines.gui_type.controller or event.gui_type == defines.gui_type.item then
         main.update_button_visibility(player)
     end
 end
