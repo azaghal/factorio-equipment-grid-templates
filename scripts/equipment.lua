@@ -440,34 +440,45 @@ end
 -- @param configuration { string = { EquipmentPosition } } Equipment configuration to apply against the grid.
 -- @param provider_inventories LuaInventory Inventories to use as source of equipment for immediate insertion.
 -- @param discard_inventory LuaInventory Inventory to discard into the excess equipment removed from the grid.
+-- @param discard_surface LuaSurface Surface to discard the excess items onto.
+-- @param discard_position MapPosition Position on surface to discard the excess items onto.
+-- @param discard_force LuaForce Force to use for ordering deconstruction of discarded equipment.
 --
 -- @return { string = { EquipmentPosition } } Equipment grid configuration with equipment that could not be installed
 --     (insufficient space or not allowed in the grid).
 --
-function equipment.import(entity, equipment_grid, configuration, provider_inventories, discard_inventory)
+function equipment.import(entity, equipment_grid, configuration, provider_inventories, discard_inventory, discard_surface, discard_position, discard_force)
 
     local excess_equipment
     local missing_configuration
     local failed_configuration
     local failed_configurations = {}
 
+    -- Remove exccess equipment.
     excess_equipment = equipment.remove_excess_equipment(equipment_grid, configuration)
 
+    -- Reuse removed excess equipment.
     missing_configuration, failed_configuration =
         equipment.populate_equipment_grid_from_source(equipment_grid, configuration, excess_equipment)
     table.insert(failed_configurations, failed_configuration)
 
+    -- Try to source equipment from passed-in inventories.
     for _, inventory in pairs(provider_inventories)do
         missing_configuration, failed_configuration =
             equipment.populate_equipment_grid_from_source(equipment_grid, missing_configuration, inventory)
         table.insert(failed_configurations, failed_configuration)
     end
 
-    equipment.discard_item_stacks(excess_equipment, discard_inventory, entity.surface, entity.position, entity.force)
+    -- Discard any remaining excess equipment.
+    equipment.discard_item_stacks(excess_equipment, discard_inventory, discard_surface, discard_position, discard_force)
 
-    -- Request missing equipment delivery.
-    equipment.clear_equipment_delivery_request(entity.unit_number)
-    equipment.add_equipment_delivery_request(entity, equipment_grid.unique_id, missing_configuration)
+    -- Request missing equipment delivery if grid is associated with an entity.
+    if entity and entity.grid and entity.grid.unique_id == equipment_grid.unique_id then
+        equipment.clear_equipment_delivery_request(entity.unit_number)
+        equipment.add_equipment_delivery_request(entity, equipment_grid.unique_id, missing_configuration)
+    else
+        table.insert(failed_configurations, missing_configuration)
+    end
 
     -- Merge all failed configurations for return result.
     local merged_failed_configurations = {}

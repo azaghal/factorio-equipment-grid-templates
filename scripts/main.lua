@@ -87,8 +87,8 @@ function main.update_button_visibility(player)
     if utils.is_player_holding_blank_editable_blueprint(player) and equipment_grid then
         gui_mode = "export"
 
-    -- Check if player is holding a valid template while window of entity with an equipment grid is open.
-    elseif entity and equipment_grid and template.is_valid_template(equipment_grid, blueprint_entities) then
+    -- Check if player is holding a valid template while a window of entity with an equipment grid is open.
+    elseif equipment_grid and template.is_valid_template(equipment_grid, blueprint_entities) then
         gui_mode = "import"
 
     end
@@ -138,11 +138,20 @@ end
 --
 function main.import(player)
 
-    local entity = utils.get_opened_gui_entity(player)
     local equipment_grid = utils.get_opened_gui_equipment_grid(player)
 
+    -- Detect if we have opened equipment grid window for armor worn by player as fallback.
+    local entity =
+        utils.get_opened_gui_entity(player) or
+        player.character.grid and player.character.grid.unique_id == equipment_grid.unique_id and player.character or
+        nil
+
     local provider_inventories = entity and utils.get_entity_inventories(entity) or {}
-    local discard_inventory = player.can_reach_entity(entity) and player.get_main_inventory() or nil
+    local discard_inventory = entity and player.can_reach_entity(entity) and player.get_main_inventory() or nil
+
+    local discard_surface = entity and entity.surface or player.surface
+    local discard_position = entity and entity.position or player.position
+    local discard_force = entity and entity.force or player.force
 
     if discard_inventory then
         table.insert(provider_inventories, discard_inventory)
@@ -151,7 +160,16 @@ function main.import(player)
     local blueprint_entities = player.get_blueprint_entities()
     local configuration = template.constant_combinators_to_equipment_grid_configuration(blueprint_entities, equipment_grid.width)
 
-    local failed_configuration = equipment.import(entity, equipment_grid, configuration, provider_inventories, discard_inventory)
+    local failed_configuration = equipment.import(
+        entity,
+        equipment_grid,
+        configuration,
+        provider_inventories,
+        discard_inventory,
+        discard_surface,
+        discard_position,
+        discard_force
+    )
 
 end
 
