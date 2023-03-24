@@ -115,4 +115,44 @@ function utils.get_entity_inventories(entity)
 end
 
 
+--- Reports details of failed equipment import to player.
+--
+-- @param player LuaPlayer Player to report the details to.
+-- @param configuration { string = { EquipmentPosition } } Configuration describing failed equipment installation. Maps
+--     equipment names into list of equipment grid positions.
+function utils.report_failed_equipment_installation(player, configuration)
+
+    player.print({"error.egt-failed-install-header"})
+
+    for name, positions in pairs(configuration) do
+
+        local positions_strings = {}
+
+        for _, position in pairs(positions) do
+            table.insert(positions_strings, string.format("(%d, %d)", position.x + 1, position.y + 1))
+        end
+
+        player.print({"error.egt-failed-install-item", name, {"equipment-name." .. name}, table.concat(positions_strings, ", ")})
+
+    end
+
+end
+
+
+-- Reports details of missing equipment import to player.
+--
+-- @param player LuaPlayer Player to report the details to
+-- @param configuration { string = { EquipmentPosition } } Configuration describing failed equipment installation. Maps
+--     equipment names into list of equipment grid positions.
+function utils.report_missing_equipment(player, configuration)
+
+    player.print({"error.egt-missing-header"})
+
+    for name, positions in pairs(configuration) do
+        player.print({"error.egt-missing-item", table_size(positions), name, {"equipment-name." .. name}})
+    end
+
+end
+
+
 return utils

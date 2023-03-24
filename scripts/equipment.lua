@@ -441,8 +441,11 @@ end
 -- @param discard_position MapPosition Position on surface to discard the excess items onto.
 -- @param discard_force LuaForce Force to use for ordering deconstruction of discarded equipment.
 --
--- @return { string = { EquipmentPosition } } Equipment grid configuration with equipment that could not be installed
---     (insufficient space or not allowed in the grid).
+--
+-- @return ( string = { EquipmentPosition }, { string = { EquipmentPosition } )
+--     Two equipment grid configurations - one with missing equipment, and one with equipment that could not be
+--     installed (insufficient space or not allowed in the grid). Missing equipment is only returned if equipment
+--     delivery request could not be created.
 --
 function equipment.import(entity, equipment_grid, configuration, provider_inventories, discard_inventory, discard_surface, discard_position, discard_force)
 
@@ -473,8 +476,7 @@ function equipment.import(entity, equipment_grid, configuration, provider_invent
     if entity and entity.grid and entity.grid.unique_id == equipment_grid.unique_id then
         equipment.clear_equipment_delivery_request(entity.unit_number)
         equipment.add_equipment_delivery_request(entity, equipment_grid.unique_id, missing_configuration)
-    else
-        table.insert(failed_configurations, missing_configuration)
+        missing_configuration = {}
     end
 
     -- Merge all failed configurations for return result.
@@ -488,7 +490,7 @@ function equipment.import(entity, equipment_grid, configuration, provider_invent
         end
     end
 
-    return merged_failed_configurations
+    return missing_configuration, merged_failed_configurations
 end
 
 

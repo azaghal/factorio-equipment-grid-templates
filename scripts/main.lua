@@ -160,7 +160,7 @@ function main.import(player)
     local blueprint_entities = player.get_blueprint_entities()
     local configuration = template.constant_combinators_to_equipment_grid_configuration(blueprint_entities, equipment_grid.width)
 
-    local failed_configuration = equipment.import(
+    local missing_configuration, failed_configuration = equipment.import(
         entity,
         equipment_grid,
         configuration,
@@ -170,6 +170,14 @@ function main.import(player)
         discard_position,
         discard_force
     )
+
+    if table_size(missing_configuration) > 0 then
+        utils.report_missing_equipment(player, missing_configuration)
+    end
+
+    if table_size(failed_configuration) > 0 then
+        utils.report_failed_equipment_installation(player, failed_configuration)
+    end
 
 end
 
