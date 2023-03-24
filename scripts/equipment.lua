@@ -5,13 +5,10 @@
 local template = require("scripts.template")
 local utils = require("scripts.utils")
 local factorio_util = require("util")
+local constants = require("scripts.constants")
 
 
 local equipment = {}
-
-
---- Update frequency in ticks for repositioning delivery boxes and installing delivered equipment.
-equipment.DELIVERY_UPDATE_FREQUENCY = 20
 
 
 --- Exports equipment grid template into passed-in blueprint.
@@ -123,7 +120,7 @@ function equipment.add_equipment_delivery_request(entity, equipment_grid_id, con
 
     -- Start processing deliveries when the first request gets added.
     if table_size(global.equipment_requests) == 1 then
-        script.on_nth_tick(equipment.DELIVERY_UPDATE_FREQUENCY, equipment.process_equipment_deliveries)
+        script.on_nth_tick(constants.DELIVERY_UPDATE_FREQUENCY, equipment.process_equipment_deliveries)
     end
 
 end
@@ -324,7 +321,7 @@ function equipment.process_equipment_deliveries()
 
     -- Stop processing equipment deliveries, there are none left.
     if table_size(global.equipment_requests) == 0 then
-        script.on_nth_tick(20, nil)
+        script.on_nth_tick(constants.DELIVERY_UPDATE_FREQUENCY, nil)
     end
 
 end

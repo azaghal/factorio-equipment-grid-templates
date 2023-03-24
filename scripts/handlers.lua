@@ -97,4 +97,13 @@ function handlers.on_configuration_changed(data)
 end
 
 
+--- Processes events every n-ticks.
+--
+-- @param data NthTickEventData Event data as passed-in by the game engine.
+--
+function handlers.on_nth_tick(data)
+    equipment.process_equipment_deliveries()
+end
+
+
 return handlers
