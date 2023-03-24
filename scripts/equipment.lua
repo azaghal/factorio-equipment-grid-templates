@@ -59,7 +59,7 @@ function equipment.create_delivery_box(entity, item_requests)
 
     -- Item request proxy that construction bots will respond to.
     local delivery_request_proxy = entity.surface.create_entity{
-        name = "item-request-proxy",
+        name = "egt-equipment-request-proxy",
         target = delivery_box,
         modules = item_requests,
         position = delivery_box.position,
