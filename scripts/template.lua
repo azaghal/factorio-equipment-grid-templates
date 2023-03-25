@@ -82,9 +82,9 @@ function template.is_valid_template(equipment_grid, blueprint_entities)
                 local equipment = game.equipment_prototypes[filter.signal.name]
 
                 -- Expected boundries for the equipment.
-                local top = math.floor((entity_index - 1) / 10) + 1
+                local top = math.floor((entity_index - 1) / equipment_grid.width) + 1
                 local bottom = top + equipment.shape.height - 1
-                local left = (entity_index - 1) % 10 + 1
+                local left = (entity_index - 1) % equipment_grid.width + 1
                 local right = left + equipment.shape.width - 1
 
                 -- Check if equipment is within the grid boundaries.

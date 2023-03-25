@@ -4,6 +4,7 @@ Date: 9999-99-99
   Changes:
   Features:
   Bugfixes:
+    - Fix inability to import templates for modded equipment grids.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.0
 Date: 2023-03-25
