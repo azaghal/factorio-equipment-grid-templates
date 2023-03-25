@@ -85,29 +85,31 @@ function utils.find_item_stack(name, source)
 end
 
 
---- Returns list of all inventories owned by an entity.
+--- Returns list of all inventories owned by one or more entities.
 --
--- @param entity LuaEntity Entity to get the inventories for.
+-- @param entities {LuaEntity} List of entities to get the inventories for.
 --
 -- @return { LuaInventory }
 --
-function utils.get_entity_inventories(entity)
+function utils.get_entity_inventories(entities)
 
     local inventories = {}
 
-    local seen = {}
-    for _, inventory_type_id in pairs(defines.inventory) do
+    for _, entity in pairs(entities) do
+        local seen = {}
+        for _, inventory_type_id in pairs(defines.inventory) do
 
-        if not seen[inventory_type_id] then
+            if not seen[inventory_type_id] then
 
-            local inventory = entity.get_inventory(inventory_type_id)
-            if inventory then
-                table.insert(inventories, inventory)
+                local inventory = entity.get_inventory(inventory_type_id)
+                if inventory then
+                    table.insert(inventories, inventory)
+                end
+                seen[inventory_type_id] = true
+
             end
-            seen[inventory_type_id] = true
 
         end
-
     end
 
     return inventories

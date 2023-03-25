@@ -146,7 +146,11 @@ function main.import(player)
         player.character.grid and player.character.grid.unique_id == equipment_grid.unique_id and player.character or
         nil
 
-    local provider_inventories = entity and utils.get_entity_inventories(entity) or {}
+    local provider_inventories =
+        entity and player.can_reach_entity(entity) and utils.get_entity_inventories({entity, player.character}) or
+        entity and not player.can_reach_entity(entity) and utils.get_entity_inventories({entity}) or
+        utils.get_entity_inventories({player})
+
     local discard_inventory = entity and player.can_reach_entity(entity) and player.get_main_inventory() or nil
 
     local discard_surface = entity and entity.surface or player.surface
