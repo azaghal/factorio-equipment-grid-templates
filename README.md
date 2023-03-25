@@ -22,6 +22,22 @@ Two export buttons are provided for two variants of resulting blueprint template
 -   Bordered blueprint template, where equipment is represented with its upper-left (corner) position, but also with color-coded borders showing how much space the equipment occupies in the grid. This template provides player with visual representation on where equipment starts and ends, and is also convenient when manipulating the template by hand (since equipment size and unoccupied slots are clearly visible).
 
 
+### Apply templates
+
+Hold an equipment grid template (blueprint) while an entity (with a grid) or equipment grid windows are open, and import button will be shown at bottom-left of the window. Button is shown _only_ when a valid equipment grid template blueprint is held. This requires that the equipment grid template (blueprint) matches the size of equipment grid, and that all the equipment specified in the template can fit.
+
+Clicking the button with the blueprint will start to install the equipment into the grid. Installed equipment comes from (in order of preference):
+
+-   Equipment grid itself.
+-   Entity's inventory.
+-   Player's inventory.
+-   Construction network (bots).
+
+> **NOTE:** When applying template against an armor (equipment grid) that is not worn by a player, only the equiment grid and player's inventory are used as the equipment source. Any missing equipment items are then reported on the console.
+
+Excess equipment from the grid is placed either in player's inventory, or spilled to the ground and marked for deconstruction.
+
+
 ### Template format
 
 Valid inventory blueprints contain only constant combinators, with signals specifying what equipment item is placed at particular position in the equipment grid. Virtual signals are allowed as well, but they serve purely decorative purpose to denote how much space a particular piece of equipment occupies.
@@ -36,6 +52,7 @@ Known issues
 
 -   Buttons for locomotives with an equipment grid are shown in the top-left side of the opened window. Attempts to attach to the bottom result in the buttons not being visible. Most likely a bug in the game engine itself.
 -   If opened window/equipment grid is particularly tall, the buttons may fail to render. Decreasing the UI scale (`Control + Numpad -`) seems to help. Most likely a bug in the game engine itself.
+-   The equipment request slot created to fulfill equipment installation via construction network will always lag behind the requesting entity. This is related to modding API limitations. Internally the mod creates an invisible container that "chases" after the entity, and has the item request proxy associated with it. Items get delivered into this invisible constainer, and then placed into the grid.
 
 
 Contributions

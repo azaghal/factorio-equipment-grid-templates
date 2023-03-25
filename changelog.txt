@@ -3,5 +3,5 @@ Version: 999.999.999
 Date: 9999-99-99
   Changes:
   Features:
-    - Export equipment grid configuration as blueprint template.
+    - Import and export equipment grid configuration as blueprint templates.
   Bugfixes:
