@@ -5,6 +5,7 @@
 local main = require("scripts.main")
 local equipment = require("scripts.equipment")
 local gui = require("scripts.gui")
+local constants = require("scripts.constants")
 
 
 local handlers = {}
@@ -61,6 +62,21 @@ end
 --
 function handlers.on_init()
     main.initialise_data()
+end
+
+
+--- Reregisters conditional handlers.
+--
+-- Primarily meant as means to reregister the processing handler (on_nth_tick) on both server and client side, since the
+-- handler is registered and deregistered as needed (both server and client must have it in same state when player joins
+-- the game).
+--
+function handlers.on_load()
+
+    if table_size(global.equipment_requests) > 0 then
+        script.on_nth_tick(constants.DELIVERY_UPDATE_FREQUENCY, handlers.on_nth_tick)
+    end
+
 end
 
 

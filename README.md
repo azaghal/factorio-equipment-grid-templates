@@ -53,6 +53,7 @@ Known issues
 -   Buttons for locomotives with an equipment grid are shown in the top-left side of the opened window. Attempts to attach to the bottom result in the buttons not being visible. Most likely a bug in the game engine itself.
 -   If opened window/equipment grid is particularly tall, the buttons may fail to render. Decreasing the UI scale (`Control + Numpad -`) seems to help. Most likely a bug in the game engine itself.
 -   The equipment request slot created to fulfill equipment installation via construction network will always lag behind the requesting entity. This is related to modding API limitations. Internally the mod creates an invisible container that "chases" after the entity, and has the item request proxy associated with it. Items get delivered into this invisible constainer, and then placed into the grid.
+-   Equipment requests are cleared for players when the rejoin multiplayer. This is the consequence of mod storing reference to player's character entity in its global state, which becomes invalid when player leaves the game. This will be addressed in future versions of the mod.
 
 
 Contributions

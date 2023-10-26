@@ -4,6 +4,7 @@ Date: 9999-99-99
   Changes:
   Features:
   Bugfixes:
+    - Fix multiplayer incompatbility by conditionally registering on_nth_tick handler during player join/load.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.1
 Date: 2023-03-26
